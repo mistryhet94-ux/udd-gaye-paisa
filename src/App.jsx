@@ -6,6 +6,24 @@ import {
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ background: '#0b0d10', minHeight: '100vh', padding: 20 }}>
+          <h2 style={{ color: '#f87171', marginBottom: 12 }}>App Error</h2>
+          <pre style={{ color: '#fca5a5', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            {this.state.error.message}{'\n'}{this.state.error.stack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const SUPABASE_URL = 'https://qlywaulgkggdzsxmxsgi.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_bxzYk0vQ0izYWFRyKLMD2w_d3wf7zTV';
 
@@ -117,7 +135,7 @@ function getNextDueDate(freq, dayOfMonth, dayOfWeek, fromDate) {
   return d.toISOString().slice(0, 10);
 }
 
-export default function App() {
+function AppInner() {
   const [tab, setTab] = useState('home');
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -451,6 +469,14 @@ export default function App() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
   );
 }
 

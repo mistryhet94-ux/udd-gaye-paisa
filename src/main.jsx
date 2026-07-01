@@ -12,8 +12,17 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
+const root = document.getElementById('root');
+if (!root) {
+  document.body.innerHTML = '<h1 style="color:white">ROOT NOT FOUND</h1>';
+} else {
+  try {
+    ReactDOM.createRoot(root).render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+  } catch(e) {
+    root.innerHTML = '<pre style="color:red;padding:20px">' + e.message + '\n' + e.stack + '</pre>';
+  }
+}
