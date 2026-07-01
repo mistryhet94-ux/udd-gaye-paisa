@@ -7,7 +7,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => {
     // Only unregister if we detect a version mismatch via a flag
     // We use a version key to force refresh when app updates
-    const currentVersion = '1.2.0';
+    const currentVersion = '1.3.0';
     const cachedVersion = localStorage.getItem('ugp_sw_version');
     if (cachedVersion !== currentVersion) {
       regs.forEach(reg => reg.unregister());
