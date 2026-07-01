@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Plus, X, TrendingUp, TrendingDown, Calendar, Repeat,
   Target, ChevronLeft, ChevronRight, Trash2, Edit2, Check,
-  Wallet, ArrowUpRight, ArrowDownRight, AlertCircle
+  Wallet, ArrowUpRight, ArrowDownRight, AlertCircle, Bell, BellOff, BarChart2
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -228,6 +228,71 @@ export default function App() {
   const dayOfMonthForAvg = isCurrentMonth ? new Date().getDate() : daysInMonth(viewDate.getFullYear(), viewDate.getMonth());
   const avgDailySpend = monthExpense / Math.max(dayOfMonthForAvg, 1);
 
+  // Daily breakdown: group transactions by date, then by category
+  const dailyBreakdown = useMemo(() => {
+    const map = {};
+    monthTx.forEach(t => {
+      if (!map[t.date]) map[t.date] = { date: t.date, total: 0, income: 0, expense: 0, cats: {} };
+      const d = map[t.date];
+      if (t.type === 'expense') {
+        d.expense += Number(t.amount);
+        d.total += Number(t.amount);
+        const cat = catMap[t.category_id];
+        const key = cat ? cat.name : 'Other';
+        if (!d.cats[key]) d.cats[key] = { name: key, icon: cat?.icon || '❓', color: cat?.color || '#64748b', amount: 0 };
+        d.cats[key].amount += Number(t.amount);
+      } else {
+        d.income += Number(t.amount);
+      }
+    });
+    return Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
+  }, [monthTx, catMap]);
+
+  // Notification system
+  const [notifEnabled, setNotifEnabled] = useState(() => localStorage.getItem('ugp_notif') === 'true');
+
+  useEffect(() => {
+    if (!notifEnabled) return;
+    if (!('Notification' in window)) return;
+
+    const sendNotif = () => {
+      if (Notification.permission === 'granted') {
+        new Notification('💸 Udd Gaye Paisa', {
+          body: 'Time to log your expenses! Tap to open.',
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          tag: 'ugp-reminder',
+        });
+      }
+    };
+
+    // Fire immediately if enabled, then every hour
+    sendNotif();
+    const interval = setInterval(sendNotif, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [notifEnabled]);
+
+  async function toggleNotifications() {
+    if (!('Notification' in window)) {
+      showToast('Notifications not supported on this browser');
+      return;
+    }
+    if (!notifEnabled) {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        setNotifEnabled(true);
+        localStorage.setItem('ugp_notif', 'true');
+        showToast('Hourly reminders enabled ✓');
+      } else {
+        showToast('Permission denied — enable in browser settings');
+      }
+    } else {
+      setNotifEnabled(false);
+      localStorage.setItem('ugp_notif', 'false');
+      showToast('Reminders turned off');
+    }
+  }
+
   const categoryBreakdown = useMemo(() => {
     const map = {};
     monthTx.filter(t => t.type === 'expense').forEach(t => {
@@ -290,7 +355,7 @@ export default function App() {
       `}</style>
 
       <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: 90, minHeight: '100vh', position: 'relative' }}>
-        <Header />
+        <Header notifEnabled={notifEnabled} onToggleNotif={toggleNotifications} />
 
         {error && (
           <div style={{ margin: '12px 20px', padding: '12px 14px', background: '#2a1416', border: '1px solid #5c2329', borderRadius: 12, fontSize: 13, color: '#ff8a8a', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -317,6 +382,14 @@ export default function App() {
                 catMap={catMap}
                 onEditTx={(t) => { setEditingTx(t); setShowAddTx(true); }}
                 onDeleteTx={deleteTx}
+              />
+            )}
+            {tab === 'daily' && (
+              <DailyTab
+                viewDate={viewDate}
+                monthOffset={monthOffset}
+                setMonthOffset={setMonthOffset}
+                dailyBreakdown={dailyBreakdown}
               />
             )}
             {tab === 'budgets' && (
@@ -381,15 +454,23 @@ export default function App() {
   );
 }
 
-function Header() {
+function Header({ notifEnabled, onToggleNotif }) {
   return (
-    <div style={{ padding: '28px 20px 8px' }}>
+    <div style={{ padding: '28px 20px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg, #f0b429, #de9a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontSize: 15 }}>💸</span>
         </div>
         <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em' }}>Udd Gaye Paisa</span>
       </div>
+      <button onClick={onToggleNotif} style={{
+        width: 36, height: 36, borderRadius: 11, border: '1px solid ' + (notifEnabled ? '#f0b429' : '#23262c'),
+        background: notifEnabled ? 'rgba(240,180,41,0.12)' : '#13151a',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: notifEnabled ? '#f0b429' : '#5b6068',
+      }}>
+        {notifEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+      </button>
     </div>
   );
 }
@@ -477,37 +558,93 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
         </div>
       )}
 
-      {/* Transactions list */}
+      {/* Daily breakdown */}
       <div style={{ margin: '0 20px' }}>
-        <SectionTitle>Transactions</SectionTitle>
+        <SectionTitle>Daily breakdown</SectionTitle>
         {monthTx.length === 0 ? (
           <EmptyState icon={<Wallet size={26} />} text="No transactions yet this month. Tap + to add one." />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {monthTx.map(t => {
-              const cat = catMap[t.category_id];
+          <DailyBreakdown monthTx={monthTx} catMap={catMap} onEditTx={onEditTx} onDeleteTx={onDeleteTx} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DailyTab({ viewDate, monthOffset, setMonthOffset, dailyBreakdown }) {
+  const [expanded, setExpanded] = useState(null);
+
+  return (
+    <div>
+      <MonthSwitcher viewDate={viewDate} monthOffset={monthOffset} setMonthOffset={setMonthOffset} />
+      <div style={{ padding: '0 20px' }}>
+        <SectionTitle>Day-wise expenses</SectionTitle>
+        {dailyBreakdown.length === 0 ? (
+          <EmptyState icon={<BarChart2 size={26} />} text="No expenses this month yet. Add transactions to see your daily breakdown." />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {dailyBreakdown.map(day => {
+              const isOpen = expanded === day.date;
+              const cats = Object.values(day.cats).sort((a, b) => b.amount - a.amount);
+              const dateObj = new Date(day.date);
+              const isToday = day.date === new Date().toISOString().slice(0, 10);
               return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: '#13151a', border: '1px solid #1d2026' }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 11, background: (cat?.color || '#64748b') + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
-                    {cat?.icon || '❓'}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#e8e6e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {cat?.name || 'Uncategorized'}
+                <div key={day.date} style={{ borderRadius: 16, background: '#13151a', border: '1px solid ' + (isToday ? '#f0b42940' : '#1d2026'), overflow: 'hidden' }}>
+                  {/* Day header row */}
+                  <button
+                    onClick={() => setExpanded(isOpen ? null : day.date)}
+                    style={{ width: '100%', padding: '14px 16px', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                  >
+                    {/* Date badge */}
+                    <div style={{ width: 40, height: 40, borderRadius: 12, background: isToday ? 'rgba(240,180,41,0.15)' : '#1a1d23', border: '1px solid ' + (isToday ? '#f0b429' : '#23262c'), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: isToday ? '#f0b429' : '#e8e6e1', lineHeight: 1 }}>{dateObj.getDate()}</span>
+                      <span style={{ fontSize: 9, color: isToday ? '#f0b429' : '#6b7280', lineHeight: 1.2 }}>{dateObj.toLocaleDateString('en-IN', { weekday: 'short' })}</span>
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 1 }}>
-                      {t.note ? t.note + ' · ' : ''}{new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    {/* Category mini chips */}
+                    <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 4, minWidth: 0 }}>
+                      {cats.slice(0, 3).map((c, i) => (
+                        <span key={i} style={{ fontSize: 11, background: c.color + '22', color: c.color, borderRadius: 100, padding: '2px 7px', fontWeight: 600 }}>
+                          {c.icon} {fmt(c.amount)}
+                        </span>
+                      ))}
+                      {cats.length > 3 && (
+                        <span style={{ fontSize: 11, background: '#1d2026', color: '#6b7280', borderRadius: 100, padding: '2px 7px' }}>+{cats.length - 3}</span>
+                      )}
                     </div>
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: t.type === 'income' ? '#4ade80' : '#e8e6e1', flexShrink: 0 }}>
-                    {t.type === 'income' ? '+' : '−'}{fmt(t.amount)}
-                  </div>
-                  <button onClick={() => onEditTx(t)} style={{ width: 28, height: 28, borderRadius: 8, background: 'transparent', border: 'none', color: '#4b5058', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Edit2 size={13} />
+                    {/* Total */}
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e8e6e1' }}>−{fmt(day.expense)}</div>
+                      {day.income > 0 && <div style={{ fontSize: 10.5, color: '#4ade80' }}>+{fmt(day.income)}</div>}
+                    </div>
+                    <div style={{ color: '#4b5058', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                      <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
+                    </div>
                   </button>
-                  <button onClick={() => onDeleteTx(t.id)} style={{ width: 28, height: 28, borderRadius: 8, background: 'transparent', border: 'none', color: '#4b5058', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Trash2 size={13} />
-                  </button>
+
+                  {/* Expanded category breakdown */}
+                  {isOpen && (
+                    <div style={{ borderTop: '1px solid #1d2026', padding: '10px 16px 14px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {cats.map((c, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 16, width: 24, textAlign: 'center', flexShrink: 0 }}>{c.icon}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <span style={{ fontSize: 12.5, color: '#c9cdd3', fontWeight: 500 }}>{c.name}</span>
+                                <span style={{ fontSize: 12.5, fontWeight: 700 }}>{fmt(c.amount)}</span>
+                              </div>
+                              <div style={{ height: 4, borderRadius: 100, background: '#1d2026', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${Math.round((c.amount / day.expense) * 100)}%`, background: c.color, borderRadius: 100 }} />
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 11, color: '#6b7280', width: 28, textAlign: 'right', flexShrink: 0 }}>
+                              {Math.round((c.amount / day.expense) * 100)}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -617,18 +754,19 @@ function EmptyState({ icon, text }) {
 function BottomNav({ tab, setTab, onAdd }) {
   const items = [
     { id: 'home', label: 'Home', icon: Wallet },
+    { id: 'daily', label: 'Daily', icon: BarChart2 },
     { id: 'budgets', label: 'Budgets', icon: Target },
     { id: 'recurring', label: 'Recurring', icon: Repeat },
   ];
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100 }}>
-      <div style={{ maxWidth: 480, margin: '0 auto', position: 'relative', padding: '0 20px 20px' }}>
-        <div style={{ background: '#13151a', border: '1px solid #1d2026', borderRadius: 100, padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-          {items.slice(0, 1).map(item => <NavBtn key={item.id} item={item} active={tab === item.id} onClick={() => setTab(item.id)} />)}
+      <div style={{ maxWidth: 480, margin: '0 auto', position: 'relative', padding: '0 12px 20px' }}>
+        <div style={{ background: '#13151a', border: '1px solid #1d2026', borderRadius: 100, padding: '8px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+          {items.slice(0, 2).map(item => <NavBtn key={item.id} item={item} active={tab === item.id} onClick={() => setTab(item.id)} />)}
           <button onClick={onAdd} style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, #f0b429, #de9a1f)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(240,180,41,0.35)', flexShrink: 0 }}>
             <Plus size={22} color="#0b0d10" strokeWidth={2.5} />
           </button>
-          {items.slice(1).map(item => <NavBtn key={item.id} item={item} active={tab === item.id} onClick={() => setTab(item.id)} />)}
+          {items.slice(2).map(item => <NavBtn key={item.id} item={item} active={tab === item.id} onClick={() => setTab(item.id)} />)}
         </div>
       </div>
     </div>
