@@ -10,7 +10,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico'],
       manifest: {
         name: 'Udd Gaye Paisa',
-        short_name: 'UddGayePaisa',
+        short_name: 'Udd Gaye Paisa',
         description: 'Personal finance tracker',
         theme_color: '#0b0d10',
         background_color: '#0b0d10',
