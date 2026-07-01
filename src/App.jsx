@@ -597,6 +597,44 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
           </div>
         </div>
       )}
+
+      {/* Transactions list */}
+      <div style={{ margin: '0 20px' }}>
+        <SectionTitle>Transactions</SectionTitle>
+        {monthTx.length === 0 ? (
+          <EmptyState icon={<Wallet size={26} />} text="No transactions yet this month. Tap + to add one." />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {monthTx.map(t => {
+              const cat = catMap[t.category_id];
+              return (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: '#13151a', border: '1px solid #1d2026' }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 11, background: (cat?.color || '#64748b') + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
+                    {cat?.icon || '❓'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#e8e6e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {cat?.name || 'Uncategorized'}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 1 }}>
+                      {t.note ? t.note + ' · ' : ''}{new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: t.type === 'income' ? '#4ade80' : '#e8e6e1', flexShrink: 0 }}>
+                    {t.type === 'income' ? '+' : '−'}{fmt(t.amount)}
+                  </div>
+                  <button onClick={() => onEditTx(t)} style={{ width: 28, height: 28, borderRadius: 8, background: 'transparent', border: 'none', color: '#4b5058', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Edit2 size={13} />
+                  </button>
+                  <button onClick={() => onDeleteTx(t.id)} style={{ width: 28, height: 28, borderRadius: 8, background: 'transparent', border: 'none', color: '#4b5058', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
