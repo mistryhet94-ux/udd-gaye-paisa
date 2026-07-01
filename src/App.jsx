@@ -267,24 +267,38 @@ function AppInner() {
   }, [monthTx, catMap]);
 
   // Notification system
-  const [notifEnabled, setNotifEnabled] = useState(() => localStorage.getItem('ugp_notif') === 'true');
+  const [notifEnabled, setNotifEnabled] = useState(() => {
+    try { return localStorage.getItem('ugp_notif') === 'true'; } catch { return false; }
+  });
 
   useEffect(() => {
     if (!notifEnabled) return;
     if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
 
     const sendNotif = () => {
-      if (Notification.permission === 'granted') {
-        new Notification('💸 Udd Gaye Paisa', {
-          body: 'Time to log your expenses! Tap to open.',
-          icon: '/icon-192.png',
-          badge: '/icon-192.png',
-          tag: 'ugp-reminder',
-        });
+      try {
+        // Use service worker notification if available (required on Android)
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification('💸 Udd Gaye Paisa', {
+              body: 'Time to log your expenses!',
+              icon: '/icon-192.png',
+              tag: 'ugp-reminder',
+            });
+          });
+        } else {
+          // Desktop fallback
+          new Notification('💸 Udd Gaye Paisa', {
+            body: 'Time to log your expenses!',
+            tag: 'ugp-reminder',
+          });
+        }
+      } catch (e) {
+        console.warn('Notification failed:', e.message);
       }
     };
 
-    // Fire immediately if enabled, then every hour
     sendNotif();
     const interval = setInterval(sendNotif, 60 * 60 * 1000);
     return () => clearInterval(interval);
@@ -299,14 +313,14 @@ function AppInner() {
       const perm = await Notification.requestPermission();
       if (perm === 'granted') {
         setNotifEnabled(true);
-        localStorage.setItem('ugp_notif', 'true');
-        showToast('Hourly reminders enabled ✓');
+        try { localStorage.setItem('ugp_notif', 'true'); } catch {}
+        showToast('Reminders enabled ✓ (notify on next hour)');
       } else {
         showToast('Permission denied — enable in browser settings');
       }
     } else {
       setNotifEnabled(false);
-      localStorage.setItem('ugp_notif', 'false');
+      try { localStorage.setItem('ugp_notif', 'false'); } catch {}
       showToast('Reminders turned off');
     }
   }
