@@ -583,16 +583,6 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
           </div>
         </div>
       )}
-
-      {/* Daily breakdown */}
-      <div style={{ margin: '0 20px' }}>
-        <SectionTitle>Daily breakdown</SectionTitle>
-        {monthTx.length === 0 ? (
-          <EmptyState icon={<Wallet size={26} />} text="No transactions yet this month. Tap + to add one." />
-        ) : (
-          <DailyBreakdown monthTx={monthTx} catMap={catMap} onEditTx={onEditTx} onDeleteTx={onDeleteTx} />
-        )}
-      </div>
     </div>
   );
 }
