@@ -246,25 +246,28 @@ function AppInner() {
   const dayOfMonthForAvg = isCurrentMonth ? new Date().getDate() : daysInMonth(viewDate.getFullYear(), viewDate.getMonth());
   const avgDailySpend = monthExpense / Math.max(dayOfMonthForAvg, 1);
 
-  // Daily breakdown: group transactions by date, then by category
-  const dailyBreakdown = useMemo(() => {
+  // Per-category average daily spend (total month spend ÷ days in month)
+  const categoryDailyAvg = useMemo(() => {
+    const totalDays = daysInMonth(viewDate.getFullYear(), viewDate.getMonth());
     const map = {};
-    monthTx.forEach(t => {
-      if (!map[t.date]) map[t.date] = { date: t.date, total: 0, income: 0, expense: 0, cats: {} };
-      const d = map[t.date];
-      if (t.type === 'expense') {
-        d.expense += Number(t.amount);
-        d.total += Number(t.amount);
-        const cat = catMap[t.category_id];
-        const key = cat ? cat.name : 'Other';
-        if (!d.cats[key]) d.cats[key] = { name: key, icon: cat?.icon || '❓', color: cat?.color || '#64748b', amount: 0 };
-        d.cats[key].amount += Number(t.amount);
-      } else {
-        d.income += Number(t.amount);
-      }
+    monthTx.filter(t => t.type === 'expense').forEach(t => {
+      const cat = catMap[t.category_id];
+      const key = cat ? cat.id : 'other';
+      if (!map[key]) map[key] = {
+        name: cat ? cat.name : 'Other',
+        icon: cat?.icon || '❓',
+        color: cat?.color || '#64748b',
+        total: 0,
+      };
+      map[key].total += Number(t.amount);
     });
-    return Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
-  }, [monthTx, catMap]);
+    const totalExpense = Object.values(map).reduce((s, c) => s + c.total, 0);
+    return Object.values(map).map(c => ({
+      ...c,
+      dailyAvg: c.total / totalDays,
+      pct: totalExpense > 0 ? (c.total / totalExpense) * 100 : 0,
+    })).sort((a, b) => b.total - a.total);
+  }, [monthTx, catMap, viewDate]);
 
   // Notification system
   const [notifEnabled, setNotifEnabled] = useState(() => {
@@ -421,7 +424,7 @@ function AppInner() {
                 viewDate={viewDate}
                 monthOffset={monthOffset}
                 setMonthOffset={setMonthOffset}
-                dailyBreakdown={dailyBreakdown}
+                categoryDailyAvg={categoryDailyAvg}
               />
             )}
             {tab === 'budgets' && (
@@ -639,83 +642,63 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
   );
 }
 
-function DailyTab({ viewDate, monthOffset, setMonthOffset, dailyBreakdown }) {
-  const [expanded, setExpanded] = useState(null);
+function DailyTab({ viewDate, monthOffset, setMonthOffset, categoryDailyAvg }) {
+  const totalDays = daysInMonth(viewDate.getFullYear(), viewDate.getMonth());
+  const isCurrentMonth = monthOffset === 0;
+  const daysElapsed = isCurrentMonth ? new Date().getDate() : totalDays;
+  const totalDailyAvg = categoryDailyAvg.reduce((s, c) => s + c.dailyAvg, 0);
 
   return (
     <div>
       <MonthSwitcher viewDate={viewDate} monthOffset={monthOffset} setMonthOffset={setMonthOffset} />
       <div style={{ padding: '0 20px' }}>
-        <SectionTitle>Day-wise expenses</SectionTitle>
-        {dailyBreakdown.length === 0 ? (
-          <EmptyState icon={<BarChart2 size={26} />} text="No expenses this month yet. Add transactions to see your daily breakdown." />
+
+        {/* Summary card */}
+        <div style={{ padding: '16px', borderRadius: 16, background: '#13151a', border: '1px solid #1d2026', marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+            Avg total daily spend · {totalDays} days in month
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            {fmtDecimal(totalDailyAvg)}
+            <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 400 }}>/day</span>
+          </div>
+          {isCurrentMonth && (
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+              Based on {daysElapsed} days elapsed this month
+            </div>
+          )}
+        </div>
+
+        <SectionTitle>Per category · daily average</SectionTitle>
+
+        {categoryDailyAvg.length === 0 ? (
+          <EmptyState icon={<BarChart2 size={26} />} text="No expenses this month. Add transactions to see your daily average per category." />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {dailyBreakdown.map(day => {
-              const isOpen = expanded === day.date;
-              const cats = Object.values(day.cats).sort((a, b) => b.amount - a.amount);
-              const dateObj = new Date(day.date);
-              const isToday = day.date === new Date().toISOString().slice(0, 10);
-              return (
-                <div key={day.date} style={{ borderRadius: 16, background: '#13151a', border: '1px solid ' + (isToday ? '#f0b42940' : '#1d2026'), overflow: 'hidden' }}>
-                  {/* Day header row */}
-                  <button
-                    onClick={() => setExpanded(isOpen ? null : day.date)}
-                    style={{ width: '100%', padding: '14px 16px', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
-                  >
-                    {/* Date badge */}
-                    <div style={{ width: 40, height: 40, borderRadius: 12, background: isToday ? 'rgba(240,180,41,0.15)' : '#1a1d23', border: '1px solid ' + (isToday ? '#f0b429' : '#23262c'), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: isToday ? '#f0b429' : '#e8e6e1', lineHeight: 1 }}>{dateObj.getDate()}</span>
-                      <span style={{ fontSize: 9, color: isToday ? '#f0b429' : '#6b7280', lineHeight: 1.2 }}>{dateObj.toLocaleDateString('en-IN', { weekday: 'short' })}</span>
-                    </div>
-                    {/* Category mini chips */}
-                    <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 4, minWidth: 0 }}>
-                      {cats.slice(0, 3).map((c, i) => (
-                        <span key={i} style={{ fontSize: 11, background: c.color + '22', color: c.color, borderRadius: 100, padding: '2px 7px', fontWeight: 600 }}>
-                          {c.icon} {fmt(c.amount)}
-                        </span>
-                      ))}
-                      {cats.length > 3 && (
-                        <span style={{ fontSize: 11, background: '#1d2026', color: '#6b7280', borderRadius: 100, padding: '2px 7px' }}>+{cats.length - 3}</span>
-                      )}
-                    </div>
-                    {/* Total */}
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e8e6e1' }}>−{fmt(day.expense)}</div>
-                      {day.income > 0 && <div style={{ fontSize: 10.5, color: '#4ade80' }}>+{fmt(day.income)}</div>}
-                    </div>
-                    <div style={{ color: '#4b5058', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-                      <ChevronRight size={14} style={{ transform: 'rotate(90deg)' }} />
-                    </div>
-                  </button>
-
-                  {/* Expanded category breakdown */}
-                  {isOpen && (
-                    <div style={{ borderTop: '1px solid #1d2026', padding: '10px 16px 14px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {cats.map((c, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 16, width: 24, textAlign: 'center', flexShrink: 0 }}>{c.icon}</span>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontSize: 12.5, color: '#c9cdd3', fontWeight: 500 }}>{c.name}</span>
-                                <span style={{ fontSize: 12.5, fontWeight: 700 }}>{fmt(c.amount)}</span>
-                              </div>
-                              <div style={{ height: 4, borderRadius: 100, background: '#1d2026', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', width: `${Math.round((c.amount / day.expense) * 100)}%`, background: c.color, borderRadius: 100 }} />
-                              </div>
-                            </div>
-                            <span style={{ fontSize: 11, color: '#6b7280', width: 28, textAlign: 'right', flexShrink: 0 }}>
-                              {Math.round((c.amount / day.expense) * 100)}%
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            {categoryDailyAvg.map((c, i) => (
+              <div key={i} style={{ padding: '14px 16px', borderRadius: 16, background: '#13151a', border: '1px solid #1d2026' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: c.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+                    {c.icon}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>{c.name}</div>
+                    <div style={{ fontSize: 11.5, color: '#6b7280' }}>₹{c.total.toLocaleString('en-IN')} total this month</div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: c.color }}>{fmtDecimal(c.dailyAvg)}</div>
+                    <div style={{ fontSize: 10.5, color: '#6b7280' }}>per day</div>
+                  </div>
                 </div>
-              );
-            })}
+                {/* Progress bar showing % of total spend */}
+                <div style={{ height: 5, borderRadius: 100, background: '#1d2026', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${c.pct}%`, background: c.color, borderRadius: 100 }} />
+                </div>
+                <div style={{ fontSize: 11, color: '#4b5058', marginTop: 4, textAlign: 'right' }}>
+                  {Math.round(c.pct)}% of total expenses
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
