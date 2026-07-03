@@ -135,7 +135,7 @@ function getNextDueDate(freq, dayOfMonth, dayOfWeek, fromDate) {
   return d.toISOString().slice(0, 10);
 }
 
-function AppInner() {
+function AppInner({ currentUser, onLogout }) {
   const [tab, setTab] = useState('home');
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -175,8 +175,16 @@ function AppInner() {
       if (catRes.error) throw new Error('Categories: ' + catRes.error.message);
       if (budRes.error) throw new Error('Budgets: ' + budRes.error.message);
       if (recRes.error) throw new Error('Recurring: ' + recRes.error.message);
-      setTransactions(Array.isArray(txRes.data) ? txRes.data : []);
-      setCategories(Array.isArray(catRes.data) ? catRes.data : []);
+      const allCategories = Array.isArray(catRes.data) ? catRes.data : [];
+      const allTransactions = Array.isArray(txRes.data) ? txRes.data : [];
+
+      // Filter out hidden categories for this user
+      const visibleCats = allCategories.filter(c => !currentUser.hiddenCategories.includes(c.name));
+      const visibleCatIds = new Set(visibleCats.map(c => c.id));
+      const visibleTx = allTransactions.filter(t => !t.category_id || visibleCatIds.has(t.category_id));
+
+      setTransactions(visibleTx);
+      setCategories(visibleCats);
       setBudgets(Array.isArray(budRes.data) ? budRes.data : []);
       setRecurring(Array.isArray(recRes.data) ? recRes.data : []);
       if (!Array.isArray(catRes.data) || catRes.data.length === 0) {
@@ -390,7 +398,7 @@ function AppInner() {
       `}</style>
 
       <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: 90, minHeight: '100vh', position: 'relative' }}>
-        <Header notifEnabled={notifEnabled} onToggleNotif={toggleNotifications} />
+        <Header notifEnabled={notifEnabled} onToggleNotif={toggleNotifications} currentUser={currentUser} onLogout={onLogout} />
 
         {error && (
           <div style={{ margin: '12px 20px', padding: '12px 14px', background: '#2a1416', border: '1px solid #5c2329', borderRadius: 12, fontSize: 13, color: '#ff8a8a', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -489,22 +497,123 @@ function AppInner() {
   );
 }
 
+// Users config — hardcoded, no DB needed
+const USERS = [
+  { id: 'het-full', name: 'Het', pin: '8128', hiddenCategories: [] },
+  { id: 'het-limited', name: 'Het', pin: '2011', hiddenCategories: ['Other'] },
+];
+
+function LoginScreen({ onLogin }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const [shake, setShake] = useState(false);
+
+  function handleKey(k) {
+    if (pin.length < 4) {
+      const next = pin + k;
+      setPin(next);
+      if (next.length === 4) {
+        const user = USERS.find(u => u.pin === next);
+        if (user) {
+          onLogin(user);
+        } else {
+          setShake(true);
+          setError('Wrong PIN');
+          setTimeout(() => { setPin(''); setError(''); setShake(false); }, 700);
+        }
+      }
+    }
+  }
+
+  function handleDel() { setPin(p => p.slice(0, -1)); setError(''); }
+
+  const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0b0d10', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }`}</style>
+
+      {/* Logo */}
+      <div style={{ marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #f0b429, #de9a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>💸</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: '#e8e6e1', letterSpacing: '-0.02em' }}>Udd Gaye Paisa</div>
+        <div style={{ fontSize: 13.5, color: '#6b7280' }}>Enter your PIN to continue</div>
+      </div>
+
+      {/* PIN dots */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 12, animation: shake ? 'shake 0.4s ease' : 'none' }}>
+        {[0,1,2,3].map(i => (
+          <div key={i} style={{
+            width: 16, height: 16, borderRadius: '50%',
+            background: i < pin.length ? '#f0b429' : 'transparent',
+            border: '2px solid ' + (i < pin.length ? '#f0b429' : '#3a3d44'),
+            transition: 'all 0.15s',
+          }} />
+        ))}
+      </div>
+
+      {error && <div style={{ fontSize: 12.5, color: '#f87171', marginBottom: 8 }}>{error}</div>}
+
+      {/* Keypad */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 16, width: '100%', maxWidth: 280 }}>
+        {keys.map((k, i) => (
+          k === '' ? <div key={i} /> :
+          k === '⌫' ? (
+            <button key={i} onClick={handleDel} style={{ height: 64, borderRadius: 16, background: '#1a1d23', border: '1px solid #23262c', color: '#9ca3af', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              ⌫
+            </button>
+          ) : (
+            <button key={i} onClick={() => handleKey(k)} style={{ height: 64, borderRadius: 16, background: '#16191e', border: '1px solid #23262c', color: '#e8e6e1', fontSize: 22, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' }}>
+              {k}
+            </button>
+          )
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('ugp_user');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+
+  function handleLogin(user) {
+    try { sessionStorage.setItem('ugp_user', JSON.stringify(user)); } catch {}
+    setCurrentUser(user);
+  }
+
+  function handleLogout() {
+    try { sessionStorage.removeItem('ugp_user'); } catch {}
+    setCurrentUser(null);
+  }
+
+  if (!currentUser) return <LoginScreen onLogin={handleLogin} />;
+
   return (
     <ErrorBoundary>
-      <AppInner />
+      <AppInner currentUser={currentUser} onLogout={handleLogout} />
     </ErrorBoundary>
   );
 }
 
-function Header({ notifEnabled, onToggleNotif }) {
+function Header({ notifEnabled, onToggleNotif, currentUser, onLogout }) {
   return (
     <div style={{ padding: '28px 20px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg, #f0b429, #de9a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontSize: 15 }}>💸</span>
         </div>
-        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em' }}>Udd Gaye Paisa</span>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}>Udd Gaye Paisa</div>
+          <button onClick={onLogout} style={{ fontSize: 10.5, color: '#6b7280', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+            {currentUser.name} · Lock
+          </button>
+        </div>
       </div>
       <button onClick={onToggleNotif} style={{
         width: 36, height: 36, borderRadius: 11, border: '1px solid ' + (notifEnabled ? '#f0b429' : '#23262c'),
