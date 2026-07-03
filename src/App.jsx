@@ -289,24 +289,18 @@ function AppInner({ currentUser, onLogout }) {
 
     const sendNotif = () => {
       try {
-        // Use service worker notification if available (required on Android)
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        if ('serviceWorker' in navigator) {
           navigator.serviceWorker.ready.then(reg => {
             reg.showNotification('💸 Udd Gaye Paisa', {
               body: 'Time to log your expenses!',
               icon: '/icon-192.png',
               tag: 'ugp-reminder',
+              renotify: true,
             });
-          });
-        } else {
-          // Desktop fallback
-          new Notification('💸 Udd Gaye Paisa', {
-            body: 'Time to log your expenses!',
-            tag: 'ugp-reminder',
-          });
+          }).catch(e => console.warn('Notif failed:', e));
         }
       } catch (e) {
-        console.warn('Notification failed:', e.message);
+        console.warn('Notification error:', e.message);
       }
     };
 
