@@ -250,6 +250,23 @@ function AppInner({ currentUser, onLogout }) {
   const monthExpense = useMemo(() => monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0), [monthTx]);
   const monthNet = monthIncome - monthExpense;
 
+  // Cash and Bank balances (all-time, not just this month)
+  const cashBalance = useMemo(() => {
+    return transactions.reduce((s, t) => {
+      if (t.payment_method !== 'cash' && t.payment_method !== null && t.payment_method !== undefined) return s;
+      const pm = t.payment_method || 'cash';
+      if (pm !== 'cash') return s;
+      return t.type === 'income' ? s + Number(t.amount) : s - Number(t.amount);
+    }, 0);
+  }, [transactions]);
+
+  const bankBalance = useMemo(() => {
+    return transactions.reduce((s, t) => {
+      if ((t.payment_method || 'cash') !== 'bank') return s;
+      return t.type === 'income' ? s + Number(t.amount) : s - Number(t.amount);
+    }, 0);
+  }, [transactions]);
+
   const isCurrentMonth = monthOffset === 0;
   const dayOfMonthForAvg = isCurrentMonth ? new Date().getDate() : daysInMonth(viewDate.getFullYear(), viewDate.getMonth());
   const avgDailySpend = monthExpense / Math.max(dayOfMonthForAvg, 1);
@@ -417,6 +434,8 @@ function AppInner({ currentUser, onLogout }) {
                 categoryBreakdown={categoryBreakdown}
                 monthTx={monthTx}
                 catMap={catMap}
+                cashBalance={cashBalance}
+                bankBalance={bankBalance}
                 onEditTx={(t) => { setEditingTx(t); setShowAddTx(true); }}
                 onDeleteTx={deleteTx}
               />
@@ -635,10 +654,30 @@ function MonthSwitcher({ viewDate, monthOffset, setMonthOffset }) {
   );
 }
 
-function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpense, monthNet, avgDailySpend, categoryBreakdown, monthTx, catMap, onEditTx, onDeleteTx }) {
+function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpense, monthNet, avgDailySpend, categoryBreakdown, monthTx, catMap, cashBalance, bankBalance, onEditTx, onDeleteTx }) {
   return (
     <div>
       <MonthSwitcher viewDate={viewDate} monthOffset={monthOffset} setMonthOffset={setMonthOffset} />
+
+      {/* Cash & Bank balance cards */}
+      <div style={{ display: 'flex', gap: 10, margin: '0 20px 16px' }}>
+        <div style={{ flex: 1, padding: '14px', borderRadius: 16, background: '#13151a', border: '1px solid #1d2026' }}>
+          <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>💵</span> Cash
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: cashBalance >= 0 ? '#e8e6e1' : '#f87171', letterSpacing: '-0.02em' }}>
+            {cashBalance >= 0 ? fmt(cashBalance) : '−' + fmt(Math.abs(cashBalance))}
+          </div>
+        </div>
+        <div style={{ flex: 1, padding: '14px', borderRadius: 16, background: '#13151a', border: '1px solid #1d2026' }}>
+          <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>🏦</span> Bank
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: bankBalance >= 0 ? '#e8e6e1' : '#f87171', letterSpacing: '-0.02em' }}>
+            {bankBalance >= 0 ? fmt(bankBalance) : '−' + fmt(Math.abs(bankBalance))}
+          </div>
+        </div>
+      </div>
 
       {/* Net balance hero */}
       <div style={{ margin: '0 20px 16px', padding: '24px 22px', borderRadius: 20, background: 'linear-gradient(155deg, #16191e, #121419)', border: '1px solid #21242a' }}>
@@ -726,8 +765,11 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: '#e8e6e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {cat?.name || 'Uncategorized'}
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 1 }}>
+                    <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
                       {t.note ? t.note + ' · ' : ''}{new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      <span style={{ fontSize: 10, background: (t.payment_method || 'cash') === 'bank' ? '#1a2535' : '#1a2218', color: (t.payment_method || 'cash') === 'bank' ? '#60a5fa' : '#86efac', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>
+                        {(t.payment_method || 'cash') === 'bank' ? '🏦' : '💵'}
+                      </span>
                     </div>
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#f87171', flexShrink: 0 }}>
@@ -1010,6 +1052,7 @@ function AddTransactionSheet({ categories, editingTx, onClose, onSaved }) {
   const [categoryId, setCategoryId] = useState(editingTx?.category_id || '');
   const [note, setNote] = useState(editingTx?.note || '');
   const [date, setDate] = useState(editingTx?.date || todayISO());
+  const [paymentMethod, setPaymentMethod] = useState(editingTx?.payment_method || 'cash');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
@@ -1030,13 +1073,13 @@ function AddTransactionSheet({ categories, editingTx, onClose, onSaved }) {
     try {
       if (editingTx) {
         const { error } = await supabase.from('transactions').update({
-          amount: Number(amount), type, category_id: categoryId, note: note || null, date,
+          amount: Number(amount), type, category_id: categoryId, note: note || null, date, payment_method: paymentMethod,
         }).eq('id', editingTx.id);
         if (error) throw error;
         onSaved('Transaction updated');
       } else {
         const { error } = await supabase.from('transactions').insert({
-          amount: Number(amount), type, category_id: categoryId, note: note || null, date,
+          amount: Number(amount), type, category_id: categoryId, note: note || null, date, payment_method: paymentMethod,
         });
         if (error) throw error;
         onSaved('Transaction added');
@@ -1061,6 +1104,22 @@ function AddTransactionSheet({ categories, editingTx, onClose, onSaved }) {
             {t === 'income' ? 'Income' : 'Expense'}
           </button>
         ))}
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>Payment method</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[{ id: 'cash', label: '💵 Cash' }, { id: 'bank', label: '🏦 Bank' }].map(m => (
+            <button key={m.id} onClick={() => setPaymentMethod(m.id)} style={{
+              flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13, fontWeight: 600,
+              border: '1px solid ' + (paymentMethod === m.id ? '#f0b429' : '#23262c'),
+              background: paymentMethod === m.id ? 'rgba(240,180,41,0.12)' : '#1a1d23',
+              color: paymentMethod === m.id ? '#f0b429' : '#8b9099',
+            }}>
+              {m.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div style={{ marginBottom: 14 }}>
