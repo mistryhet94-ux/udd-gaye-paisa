@@ -1052,7 +1052,7 @@ function AddTransactionSheet({ categories, editingTx, onClose, onSaved }) {
   const [categoryId, setCategoryId] = useState(editingTx?.category_id || '');
   const [note, setNote] = useState(editingTx?.note || '');
   const [date, setDate] = useState(editingTx?.date || todayISO());
-  const [paymentMethod, setPaymentMethod] = useState(editingTx?.payment_method || 'cash');
+  const [paymentMethod, setPaymentMethod] = useState(editingTx?.payment_method || 'bank');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
