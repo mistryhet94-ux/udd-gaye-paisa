@@ -697,13 +697,247 @@ function MonthSwitcher({ viewDate, monthOffset, setMonthOffset }) {
 }
 
 function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpense, monthNet, avgDailySpend, categoryBreakdown, monthTx, catMap, cashBalance, bankBalance, onEditTx, onDeleteTx, categoryDailyAvg }) {
-  const [expanded, setExpanded] = useState(null); // 'income' | 'expense' | 'daily' | null
-
-  function toggle(key) { setExpanded(e => e === key ? null : key); }
+  const [modal, setModal] = useState(null); // 'income' | 'expense' | 'daily' | null
 
   const expenseTx = monthTx.filter(t => t.type === 'expense');
   const incomeTx = monthTx.filter(t => t.type === 'income');
   const totalDays = daysInMonth(viewDate.getFullYear(), viewDate.getMonth());
+
+  return (
+    <div>
+      <MonthSwitcher viewDate={viewDate} monthOffset={monthOffset} setMonthOffset={setMonthOffset} />
+
+      {/* Hero net balance card */}
+      <div style={{ margin: '0 20px 14px', padding: '26px 22px 22px', borderRadius: 28, background: `linear-gradient(145deg, #1a1060 0%, #0e0a2a 50%, #0a1230 100%)`, border: `1px solid ${T.border2}`, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -40, right: -20, width: 160, height: 160, borderRadius: '50%', background: `radial-gradient(circle, ${T.indigo}30, transparent 70%)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -20, width: 120, height: 120, borderRadius: '50%', background: `radial-gradient(circle, ${T.purple}20, transparent 70%)`, pointerEvents: 'none' }} />
+        <div style={{ fontSize: 11, color: T.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Net Balance · {viewDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</div>
+        <div style={{ fontSize: 42, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 20, background: monthNet >= 0 ? `linear-gradient(135deg, ${T.text}, ${T.indigoL})` : `linear-gradient(135deg, ${T.coral}, #ff9eb5)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          {monthNet >= 0 ? fmt(monthNet) : '−' + fmt(Math.abs(monthNet))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={() => setModal('income')} className="btn-press" style={{ flex: 1, padding: '12px', borderRadius: 16, background: `${T.mint}12`, border: `1px solid ${T.mint}30`, textAlign: 'left' }}>
+            <div style={{ fontSize: 10, color: T.mint, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 4 }}>↑ INCOME</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: T.mint, letterSpacing: '-0.02em' }}>{fmt(monthIncome)}</div>
+            <div style={{ fontSize: 9.5, color: T.mint, opacity: 0.6, marginTop: 3 }}>Tap to view →</div>
+          </button>
+          <button onClick={() => setModal('expense')} className="btn-press" style={{ flex: 1, padding: '12px', borderRadius: 16, background: `${T.coral}12`, border: `1px solid ${T.coral}30`, textAlign: 'left' }}>
+            <div style={{ fontSize: 10, color: T.coral, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 4 }}>↓ EXPENSE</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: T.coral, letterSpacing: '-0.02em' }}>{fmt(monthExpense)}</div>
+            <div style={{ fontSize: 9.5, color: T.coral, opacity: 0.6, marginTop: 3 }}>Tap to view →</div>
+          </button>
+        </div>
+      </div>
+
+      {/* Cash & Bank balance cards */}
+      <div style={{ display: 'flex', gap: 10, margin: '0 20px 14px' }}>
+        <div style={{ flex: 1, padding: '16px', borderRadius: 20, background: `linear-gradient(145deg, #0d1a35, #0a1225)`, border: `1px solid ${T.indigo}30`, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -15, right: -15, width: 60, height: 60, borderRadius: '50%', background: `${T.indigo}15`, pointerEvents: 'none' }} />
+          <div style={{ fontSize: 20, marginBottom: 6 }}>🏦</div>
+          <div style={{ fontSize: 10.5, color: T.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 4 }}>BANK</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: bankBalance >= 0 ? T.blue : T.coral, letterSpacing: '-0.02em' }}>
+            {bankBalance >= 0 ? fmt(bankBalance) : '−' + fmt(Math.abs(bankBalance))}
+          </div>
+        </div>
+        <div style={{ flex: 1, padding: '16px', borderRadius: 20, background: `linear-gradient(145deg, #0d2a1a, #0a1a12)`, border: `1px solid ${T.mint}25`, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -15, right: -15, width: 60, height: 60, borderRadius: '50%', background: `${T.mint}12`, pointerEvents: 'none' }} />
+          <div style={{ fontSize: 20, marginBottom: 6 }}>💵</div>
+          <div style={{ fontSize: 10.5, color: T.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 4 }}>CASH</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: cashBalance >= 0 ? T.mint : T.coral, letterSpacing: '-0.02em' }}>
+            {cashBalance >= 0 ? fmt(cashBalance) : '−' + fmt(Math.abs(cashBalance))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tappable Avg daily spend */}
+      <button onClick={() => setModal('daily')} className="btn-press" style={{ margin: '0 20px 14px', padding: '14px 18px', borderRadius: 18, background: `linear-gradient(135deg, #1a1508, #120f04)`, border: `1px solid ${T.gold}25`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: 'calc(100% - 40px)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: T.goldL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Calendar size={15} color={T.gold} />
+          </div>
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: 10, color: T.muted, fontWeight: 700, letterSpacing: '0.06em' }}>AVG DAILY SPEND</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: T.gold, letterSpacing: '-0.02em' }}>{fmtDecimal(avgDailySpend)}</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 10, color: T.muted, background: T.goldL, padding: '4px 9px', borderRadius: 100, fontWeight: 600 }}>By category →</div>
+      </button>
+
+      {/* Category pie breakdown */}
+      {categoryBreakdown.length > 0 && (
+        <div style={{ margin: '0 20px 20px' }}>
+          <SectionTitle>Where it went</SectionTitle>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px', borderRadius: 20, background: T.card, border: `1px solid ${T.border}` }}>
+            <div style={{ width: 96, height: 96, flexShrink: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={categoryBreakdown} dataKey="value" innerRadius={30} outerRadius={46} paddingAngle={3} strokeWidth={0}>
+                    {categoryBreakdown.map((c, i) => <Cell key={i} fill={c.color} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+              {categoryBreakdown.slice(0, 5).map((c, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 3, background: c.color, flexShrink: 0 }} />
+                  <span style={{ color: T.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>{c.name}</span>
+                  <span style={{ color: T.muted, fontWeight: 700, flexShrink: 0 }}>{fmt(c.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      {modal === 'income' && (
+        <TxModal
+          title="Income"
+          total={fmt(monthIncome)}
+          totalColor={T.mint}
+          transactions={incomeTx}
+          catMap={catMap}
+          type="income"
+          onEdit={(t) => { setModal(null); onEditTx(t); }}
+          onDelete={onDeleteTx}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === 'expense' && (
+        <TxModal
+          title="Expenses"
+          total={fmt(monthExpense)}
+          totalColor={T.coral}
+          transactions={expenseTx}
+          catMap={catMap}
+          type="expense"
+          onEdit={(t) => { setModal(null); onEditTx(t); }}
+          onDelete={onDeleteTx}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === 'daily' && (
+        <DailyModal
+          categoryDailyAvg={categoryDailyAvg}
+          totalDays={totalDays}
+          avgDailySpend={avgDailySpend}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function TxModal({ title, total, totalColor, transactions, catMap, type, onEdit, onDelete, onClose }) {
+  const isIncome = type === 'income';
+  return (
+    <div className="overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
+      <div className="sheet" style={{ width: '100%', maxWidth: 480, margin: '0 auto', background: `linear-gradient(180deg, #0f1128, ${T.surface})`, borderRadius: '28px 28px 0 0', border: `1px solid ${T.border2}`, borderBottom: 'none', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        {/* Handle */}
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: T.border2, margin: '14px auto 0' }} />
+        {/* Header */}
+        <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: T.text, letterSpacing: '-0.03em' }}>{title}</div>
+            <div style={{ fontSize: 13, color: totalColor, fontWeight: 700, marginTop: 2 }}>
+              {isIncome ? '+' : '−'}{total} · {transactions.length} transactions
+            </div>
+          </div>
+          <button onClick={onClose} className="btn-press" style={{ width: 34, height: 34, borderRadius: '50%', background: T.card, border: `1px solid ${T.border}`, color: T.muted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={15} />
+          </button>
+        </div>
+        {/* List */}
+        <div style={{ overflowY: 'auto', padding: '0 16px 32px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {transactions.length === 0 ? (
+            <EmptyState icon={isIncome ? <ArrowUpRight size={22} /> : <ArrowDownRight size={22} />} text={`No ${title.toLowerCase()} this month.`} />
+          ) : transactions.map(t => (
+            <TxCard key={t.id} t={t} cat={catMap[t.category_id]} type={type} onEdit={onEdit} onDelete={onDelete} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DailyModal({ categoryDailyAvg, totalDays, avgDailySpend, onClose }) {
+  return (
+    <div className="overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
+      <div className="sheet" style={{ width: '100%', maxWidth: 480, margin: '0 auto', background: `linear-gradient(180deg, #0f1128, ${T.surface})`, borderRadius: '28px 28px 0 0', border: `1px solid ${T.border2}`, borderBottom: 'none', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: T.border2, margin: '14px auto 0' }} />
+        <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: T.text, letterSpacing: '-0.03em' }}>Daily Average</div>
+            <div style={{ fontSize: 13, color: T.gold, fontWeight: 700, marginTop: 2 }}>{fmtDecimal(avgDailySpend)}/day · {totalDays} days this month</div>
+          </div>
+          <button onClick={onClose} className="btn-press" style={{ width: 34, height: 34, borderRadius: '50%', background: T.card, border: `1px solid ${T.border}`, color: T.muted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={15} />
+          </button>
+        </div>
+        <div style={{ overflowY: 'auto', padding: '0 16px 32px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {categoryDailyAvg.length === 0 ? (
+            <EmptyState icon={<BarChart2 size={22} />} text="No expenses to show." />
+          ) : categoryDailyAvg.map((c, i) => (
+            <div key={i} style={{ padding: '14px', borderRadius: 18, background: T.card, border: `1px solid ${T.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: c.color + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{c.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{c.name}</div>
+                  <div style={{ fontSize: 11, color: T.muted }}>₹{c.total.toLocaleString('en-IN')} total this month</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: c.color }}>{fmtDecimal(c.dailyAvg)}</div>
+                  <div style={{ fontSize: 10, color: T.muted }}>per day</div>
+                </div>
+              </div>
+              <div style={{ height: 5, borderRadius: 100, background: T.border, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${c.pct}%`, background: `linear-gradient(90deg, ${c.color}, ${c.color}88)`, borderRadius: 100 }} />
+              </div>
+              <div style={{ fontSize: 10.5, color: T.dim, marginTop: 5, textAlign: 'right' }}>{Math.round(c.pct)}% of total</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Reusable transaction card
+function TxCard({ t, cat, type, onEdit, onDelete }) {
+  const isBank = (t.payment_method || 'bank') === 'bank';
+  const isIncome = type === 'income';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 13px', borderRadius: 16, background: isIncome ? T.mintL : T.card, border: `1px solid ${isIncome ? T.mint + '30' : T.border}`, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: cat?.color || (isIncome ? T.mint : T.coral), borderRadius: '0 2px 2px 0' }} />
+      <div style={{ width: 38, height: 38, borderRadius: 12, background: (cat?.color || (isIncome ? T.mint : T.coral)) + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+        {cat?.icon || (isIncome ? '💰' : '❓')}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {cat?.name || 'Uncategorized'}
+        </div>
+        <div style={{ fontSize: 10.5, color: T.muted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          {t.note && <span>{t.note} ·</span>}
+          <span>{new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+          <span style={{ background: isBank ? T.indigoGlow : T.mintL, color: isBank ? T.indigoL : T.mint, borderRadius: 5, padding: '1px 5px', fontWeight: 700, fontSize: 9.5 }}>
+            {isBank ? '🏦' : '💵'}
+          </span>
+        </div>
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 800, color: isIncome ? T.mint : T.coral, flexShrink: 0 }}>
+        {isIncome ? '+' : '−'}{fmt(t.amount)}
+      </div>
+      <button onClick={() => onEdit(t)} className="btn-press" style={{ width: 28, height: 28, borderRadius: 9, background: T.surface, border: `1px solid ${T.border}`, color: T.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Edit2 size={11} />
+      </button>
+      <button onClick={() => onDelete(t.id)} className="btn-press" style={{ width: 28, height: 28, borderRadius: 9, background: T.surface, border: `1px solid ${T.border}`, color: T.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Trash2 size={11} />
+      </button>
+    </div>
+  );
+}
 
   return (
     <div>
