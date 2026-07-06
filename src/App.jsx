@@ -394,19 +394,8 @@ function AppInner({ currentUser, onLogout }) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0b0d10', color: '#e8e6e1', fontFamily: "'Inter', -apple-system, sans-serif" }}>
-      <style>{`
-        * { box-sizing: border-box; }
-        body { margin: 0; }
-        ::-webkit-scrollbar { display: none; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
-        .sheet { animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-        .overlay { animation: fadeIn 0.2s ease; }
-        button { font-family: inherit; cursor: pointer; }
-        input, select { font-family: inherit; }
-      `}</style>
+    <div style={{ minHeight: '100vh', background: T.bg, color: T.text, fontFamily: "'Inter', -apple-system, sans-serif" }}>
+      <style>{GLOBAL_CSS}</style>
 
       <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: 90, minHeight: '100vh', position: 'relative' }}>
         <Header notifEnabled={notifEnabled} onToggleNotif={toggleNotifications} currentUser={currentUser} onLogout={onLogout} />
@@ -510,7 +499,51 @@ function AppInner({ currentUser, onLogout }) {
   );
 }
 
-// Users config — hardcoded, no DB needed
+// ── Design tokens ────────────────────────────────────────────
+const T = {
+  bg:       '#070810',
+  surface:  '#0d0e1a',
+  card:     '#111226',
+  cardHi:   '#161830',
+  border:   '#1e2040',
+  border2:  '#2a2d55',
+  text:     '#eeeeff',
+  muted:    '#7b82b0',
+  dim:      '#3d4168',
+  indigo:   '#7c6fff',
+  indigoL:  '#a89fff',
+  indigoGlow: 'rgba(124,111,255,0.18)',
+  coral:    '#ff5e7d',
+  coralL:   'rgba(255,94,125,0.15)',
+  mint:     '#00e5b0',
+  mintL:    'rgba(0,229,176,0.15)',
+  gold:     '#ffcc44',
+  goldD:    '#e0a820',
+  goldL:    'rgba(255,204,68,0.15)',
+  purple:   '#b06fff',
+  blue:     '#4eb5ff',
+};
+
+const GLOBAL_CSS = `
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: ${T.bg}; }
+  ::-webkit-scrollbar { display: none; }
+  @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @keyframes shake   { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+  @keyframes popIn   { 0%{transform:scale(0.88);opacity:0} 100%{transform:scale(1);opacity:1} }
+  @keyframes float   { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-6px)} }
+  @keyframes glow    { 0%,100%{box-shadow:0 0 20px rgba(124,111,255,0.3)} 50%{box-shadow:0 0 35px rgba(124,111,255,0.5)} }
+  .sheet  { animation: slideUp 0.35s cubic-bezier(0.16,1,0.3,1); }
+  .overlay{ animation: fadeIn 0.2s ease; }
+  .pop    { animation: popIn 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+  button  { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  input, select { font-family: inherit; }
+  input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+  .btn-press:active { transform: scale(0.95); transition: transform 0.1s; }
+`;
+
 const USERS = [
   { id: 'het-full', name: 'Het', pin: '8128', hiddenCategories: [] },
   { id: 'het-limited', name: 'Het', pin: '2011', hiddenCategories: ['Other'] },
@@ -543,40 +576,45 @@ function LoginScreen({ onLogin }) {
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0b0d10', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }`}</style>
+    <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at 50% 0%, #1a1060 0%, ${T.bg} 60%)`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} } @keyframes float { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-8px)} }`}</style>
 
       {/* Logo */}
-      <div style={{ marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #f0b429, #de9a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>💸</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: '#e8e6e1', letterSpacing: '-0.02em' }}>Udd Gaye Paisa</div>
-        <div style={{ fontSize: 13.5, color: '#6b7280' }}>Enter your PIN to continue</div>
+      <div style={{ marginBottom: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <div style={{ width: 80, height: 80, borderRadius: 24, background: `linear-gradient(135deg, ${T.gold}, ${T.goldD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, boxShadow: `0 8px 32px ${T.goldL}, 0 0 0 1px rgba(255,204,68,0.3)`, animation: 'float 3s ease-in-out infinite' }}>💸</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: T.text, letterSpacing: '-0.03em' }}>Udd Gaye Paisa</div>
+          <div style={{ fontSize: 13, color: T.muted, marginTop: 4 }}>Your money, your way 💰</div>
+        </div>
       </div>
 
       {/* PIN dots */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 12, animation: shake ? 'shake 0.4s ease' : 'none' }}>
+      <div style={{ display: 'flex', gap: 18, marginBottom: 10, animation: shake ? 'shake 0.4s ease' : 'none' }}>
         {[0,1,2,3].map(i => (
           <div key={i} style={{
-            width: 16, height: 16, borderRadius: '50%',
-            background: i < pin.length ? '#f0b429' : 'transparent',
-            border: '2px solid ' + (i < pin.length ? '#f0b429' : '#3a3d44'),
-            transition: 'all 0.15s',
+            width: 18, height: 18, borderRadius: '50%',
+            background: i < pin.length ? `linear-gradient(135deg, ${T.indigo}, ${T.purple})` : 'transparent',
+            border: '2px solid ' + (i < pin.length ? T.indigo : T.border2),
+            transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+            transform: i < pin.length ? 'scale(1.1)' : 'scale(1)',
+            boxShadow: i < pin.length ? `0 0 12px ${T.indigoGlow}` : 'none',
           }} />
         ))}
       </div>
 
-      {error && <div style={{ fontSize: 12.5, color: '#f87171', marginBottom: 8 }}>{error}</div>}
+      {error && <div style={{ fontSize: 12.5, color: T.coral, marginBottom: 10, fontWeight: 600 }}>Wrong PIN, try again</div>}
+      {!error && <div style={{ height: 22, marginBottom: 10 }} />}
 
       {/* Keypad */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 16, width: '100%', maxWidth: 280 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%', maxWidth: 280 }}>
         {keys.map((k, i) => (
           k === '' ? <div key={i} /> :
           k === '⌫' ? (
-            <button key={i} onClick={handleDel} style={{ height: 64, borderRadius: 16, background: '#1a1d23', border: '1px solid #23262c', color: '#9ca3af', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button key={i} onClick={handleDel} className="btn-press" style={{ height: 68, borderRadius: 20, background: T.surface, border: `1px solid ${T.border}`, color: T.muted, fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               ⌫
             </button>
           ) : (
-            <button key={i} onClick={() => handleKey(k)} style={{ height: 64, borderRadius: 16, background: '#16191e', border: '1px solid #23262c', color: '#e8e6e1', fontSize: 22, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' }}>
+            <button key={i} onClick={() => handleKey(k)} className="btn-press" style={{ height: 68, borderRadius: 20, background: T.card, border: `1px solid ${T.border}`, color: T.text, fontSize: 24, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', letterSpacing: '-0.02em' }}>
               {k}
             </button>
           )
@@ -616,23 +654,26 @@ export default function App() {
 
 function Header({ notifEnabled, onToggleNotif, currentUser, onLogout }) {
   return (
-    <div style={{ padding: '28px 20px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg, #f0b429, #de9a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 15 }}>💸</span>
+    <div style={{ padding: '24px 20px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 14, background: `linear-gradient(135deg, ${T.gold}, ${T.goldD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${T.goldL}`, fontSize: 20 }}>
+          💸
         </div>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}>Udd Gaye Paisa</div>
-          <button onClick={onLogout} style={{ fontSize: 10.5, color: '#6b7280', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.03em', background: `linear-gradient(90deg, ${T.text}, ${T.indigoL})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.2 }}>Udd Gaye Paisa</div>
+          <button onClick={onLogout} style={{ fontSize: 10.5, color: T.indigo, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.mint, display: 'inline-block' }} />
             {currentUser.name} · Lock
           </button>
         </div>
       </div>
-      <button onClick={onToggleNotif} style={{
-        width: 36, height: 36, borderRadius: 11, border: '1px solid ' + (notifEnabled ? '#f0b429' : '#23262c'),
-        background: notifEnabled ? 'rgba(240,180,41,0.12)' : '#13151a',
+      <button onClick={onToggleNotif} className="btn-press" style={{
+        width: 40, height: 40, borderRadius: 13,
+        border: `1px solid ${notifEnabled ? T.gold + '50' : T.border}`,
+        background: notifEnabled ? T.goldL : T.card,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: notifEnabled ? '#f0b429' : '#5b6068',
+        color: notifEnabled ? T.gold : T.dim,
+        boxShadow: notifEnabled ? `0 0 16px ${T.goldL}` : 'none',
       }}>
         {notifEnabled ? <Bell size={16} /> : <BellOff size={16} />}
       </button>
@@ -642,13 +683,13 @@ function Header({ notifEnabled, onToggleNotif, currentUser, onLogout }) {
 
 function MonthSwitcher({ viewDate, monthOffset, setMonthOffset }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 20px 18px' }}>
-      <button onClick={() => setMonthOffset(o => o - 1)} style={{ width: 34, height: 34, borderRadius: 10, background: '#171a1f', border: '1px solid #23262c', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-        <ChevronLeft size={17} />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 20px 16px' }}>
+      <button onClick={() => setMonthOffset(o => o - 1)} style={{ width: 32, height: 32, borderRadius: 10, background: T.card, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.muted }}>
+        <ChevronLeft size={16} />
       </button>
-      <span style={{ fontSize: 14.5, fontWeight: 600, color: '#c9cdd3' }}>{monthLabel(viewDate)}</span>
-      <button onClick={() => setMonthOffset(o => Math.min(0, o + 1))} disabled={monthOffset === 0} style={{ width: 34, height: 34, borderRadius: 10, background: '#171a1f', border: '1px solid #23262c', display: 'flex', alignItems: 'center', justifyContent: 'center', color: monthOffset === 0 ? '#3a3d44' : '#9ca3af' }}>
-        <ChevronRight size={17} />
+      <span style={{ fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: '-0.01em' }}>{monthLabel(viewDate)}</span>
+      <button onClick={() => setMonthOffset(o => Math.min(0, o + 1))} disabled={monthOffset === 0} style={{ width: 32, height: 32, borderRadius: 10, background: T.card, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: monthOffset === 0 ? T.border : T.muted }}>
+        <ChevronRight size={16} />
       </button>
     </div>
   );
@@ -659,83 +700,80 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
     <div>
       <MonthSwitcher viewDate={viewDate} monthOffset={monthOffset} setMonthOffset={setMonthOffset} />
 
-      {/* Cash & Bank balance cards */}
-      <div style={{ display: 'flex', gap: 10, margin: '0 20px 16px' }}>
-        <div style={{ flex: 1, padding: '14px', borderRadius: 16, background: '#13151a', border: '1px solid #1d2026' }}>
-          <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span>💵</span> Cash
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: cashBalance >= 0 ? '#e8e6e1' : '#f87171', letterSpacing: '-0.02em' }}>
-            {cashBalance >= 0 ? fmt(cashBalance) : '−' + fmt(Math.abs(cashBalance))}
-          </div>
+      {/* Hero net balance card */}
+      <div style={{ margin: '0 20px 14px', padding: '26px 22px 22px', borderRadius: 28, background: `linear-gradient(145deg, #1a1060 0%, #0e0a2a 50%, #0a1230 100%)`, border: `1px solid ${T.border2}`, position: 'relative', overflow: 'hidden' }}>
+        {/* Decorative orbs */}
+        <div style={{ position: 'absolute', top: -40, right: -20, width: 160, height: 160, borderRadius: '50%', background: `radial-gradient(circle, ${T.indigo}30, transparent 70%)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -20, width: 120, height: 120, borderRadius: '50%', background: `radial-gradient(circle, ${T.purple}20, transparent 70%)`, pointerEvents: 'none' }} />
+
+        <div style={{ fontSize: 11, color: T.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Net Balance · {viewDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</div>
+        <div style={{ fontSize: 42, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 20, background: monthNet >= 0 ? `linear-gradient(135deg, ${T.text}, ${T.indigoL})` : `linear-gradient(135deg, ${T.coral}, #ff9eb5)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          {monthNet >= 0 ? fmt(monthNet) : '−' + fmt(Math.abs(monthNet))}
         </div>
-        <div style={{ flex: 1, padding: '14px', borderRadius: 16, background: '#13151a', border: '1px solid #1d2026' }}>
-          <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span>🏦</span> Bank
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1, padding: '10px 12px', borderRadius: 14, background: `${T.mint}12`, border: `1px solid ${T.mint}25` }}>
+            <div style={{ fontSize: 10, color: T.mint, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 3 }}>↑ INCOME</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: T.mint }}>{fmt(monthIncome)}</div>
           </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: bankBalance >= 0 ? '#e8e6e1' : '#f87171', letterSpacing: '-0.02em' }}>
-            {bankBalance >= 0 ? fmt(bankBalance) : '−' + fmt(Math.abs(bankBalance))}
+          <div style={{ flex: 1, padding: '10px 12px', borderRadius: 14, background: `${T.coral}12`, border: `1px solid ${T.coral}25` }}>
+            <div style={{ fontSize: 10, color: T.coral, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 3 }}>↓ EXPENSE</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: T.coral }}>{fmt(monthExpense)}</div>
           </div>
         </div>
       </div>
 
-      {/* Net balance hero */}
-      <div style={{ margin: '0 20px 16px', padding: '24px 22px', borderRadius: 20, background: 'linear-gradient(155deg, #16191e, #121419)', border: '1px solid #21242a' }}>
-        <div style={{ fontSize: 12.5, color: '#8b9099', fontWeight: 500, marginBottom: 6 }}>Net this month</div>
-        <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em', color: monthNet >= 0 ? '#e8e6e1' : '#ff8a8a' }}>
-          {monthNet >= 0 ? fmt(monthNet) : '−' + fmt(Math.abs(monthNet))}
-        </div>
-        <div style={{ display: 'flex', gap: 18, marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 22, height: 22, borderRadius: 7, background: 'rgba(34,197,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ArrowUpRight size={12} color="#4ade80" />
-            </div>
-            <div>
-              <div style={{ fontSize: 10.5, color: '#6b7280' }}>Income</div>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{fmt(monthIncome)}</div>
-            </div>
+      {/* Cash & Bank balance cards */}
+      <div style={{ display: 'flex', gap: 10, margin: '0 20px 14px' }}>
+        <div style={{ flex: 1, padding: '16px', borderRadius: 20, background: `linear-gradient(145deg, #0d1a35, #0a1225)`, border: `1px solid ${T.indigo}30`, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -15, right: -15, width: 60, height: 60, borderRadius: '50%', background: `${T.indigo}15`, pointerEvents: 'none' }} />
+          <div style={{ fontSize: 20, marginBottom: 6 }}>🏦</div>
+          <div style={{ fontSize: 10.5, color: T.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 4 }}>BANK</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: bankBalance >= 0 ? T.blue : T.coral, letterSpacing: '-0.02em' }}>
+            {bankBalance >= 0 ? fmt(bankBalance) : '−' + fmt(Math.abs(bankBalance))}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 22, height: 22, borderRadius: 7, background: 'rgba(248,113,113,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ArrowDownRight size={12} color="#f87171" />
-            </div>
-            <div>
-              <div style={{ fontSize: 10.5, color: '#6b7280' }}>Expense</div>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{fmt(monthExpense)}</div>
-            </div>
+        </div>
+        <div style={{ flex: 1, padding: '16px', borderRadius: 20, background: `linear-gradient(145deg, #0d2a1a, #0a1a12)`, border: `1px solid ${T.mint}25`, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -15, right: -15, width: 60, height: 60, borderRadius: '50%', background: `${T.mint}12`, pointerEvents: 'none' }} />
+          <div style={{ fontSize: 20, marginBottom: 6 }}>💵</div>
+          <div style={{ fontSize: 10.5, color: T.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 4 }}>CASH</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: cashBalance >= 0 ? T.mint : T.coral, letterSpacing: '-0.02em' }}>
+            {cashBalance >= 0 ? fmt(cashBalance) : '−' + fmt(Math.abs(cashBalance))}
           </div>
         </div>
       </div>
 
       {/* Avg daily spend */}
-      <div style={{ margin: '0 20px 20px', padding: '14px 16px', borderRadius: 16, background: '#13151a', border: '1px solid #1d2026', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Calendar size={15} color="#f0b429" />
-          <span style={{ fontSize: 13, color: '#9ca3af' }}>Avg daily spend</span>
+      <div style={{ margin: '0 20px 20px', padding: '14px 18px', borderRadius: 18, background: `linear-gradient(135deg, #1a1508, #120f04)`, border: `1px solid ${T.gold}25`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: T.goldL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Calendar size={15} color={T.gold} />
+          </div>
+          <span style={{ fontSize: 13.5, color: T.muted, fontWeight: 500 }}>Avg daily spend</span>
         </div>
-        <span style={{ fontSize: 14.5, fontWeight: 700 }}>{fmtDecimal(avgDailySpend)}</span>
+        <span style={{ fontSize: 17, fontWeight: 800, color: T.gold, letterSpacing: '-0.02em' }}>{fmtDecimal(avgDailySpend)}</span>
       </div>
 
       {/* Category breakdown */}
       {categoryBreakdown.length > 0 && (
         <div style={{ margin: '0 20px 20px' }}>
           <SectionTitle>Where it went</SectionTitle>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', borderRadius: 16, background: '#13151a', border: '1px solid #1d2026' }}>
-            <div style={{ width: 92, height: 92, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px', borderRadius: 20, background: T.card, border: `1px solid ${T.border}` }}>
+            <div style={{ width: 96, height: 96, flexShrink: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={categoryBreakdown} dataKey="value" innerRadius={28} outerRadius={44} paddingAngle={2} strokeWidth={0}>
+                  <Pie data={categoryBreakdown} dataKey="value" innerRadius={30} outerRadius={46} paddingAngle={3} strokeWidth={0}>
                     {categoryBreakdown.map((c, i) => <Cell key={i} fill={c.color} />)}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
               {categoryBreakdown.slice(0, 5).map((c, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: 2, background: c.color, flexShrink: 0 }} />
-                  <span style={{ color: '#c9cdd3', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                  <span style={{ color: '#8b9099', fontWeight: 600, flexShrink: 0 }}>{fmt(c.value)}</span>
+                  <div style={{ width: 8, height: 8, borderRadius: 3, background: c.color, flexShrink: 0 }} />
+                  <span style={{ color: T.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>{c.name}</span>
+                  <span style={{ color: T.muted, fontWeight: 700, flexShrink: 0 }}>{fmt(c.value)}</span>
                 </div>
               ))}
             </div>
@@ -743,43 +781,43 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
         </div>
       )}
 
-
       {/* Expenses list */}
-      <div style={{ margin: '0 20px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <SectionTitle>Expenses</SectionTitle>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#f87171' }}>−{fmt(monthTx.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0))}</span>
+      <div style={{ margin: '0 20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <SectionTitle color={T.coral}>Expenses</SectionTitle>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.coral, background: T.coralL, padding: '4px 10px', borderRadius: 100 }}>−{fmt(monthTx.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0))}</div>
         </div>
         {monthTx.filter(t => t.type === 'expense').length === 0 ? (
-          <EmptyState icon={<ArrowDownRight size={22} />} text="No expenses this month." />
+          <EmptyState icon={<ArrowDownRight size={22} />} text="No expenses this month. Tap + to add one." />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {monthTx.filter(t => t.type === 'expense').map(t => {
               const cat = catMap[t.category_id];
+              const isBank = (t.payment_method || 'bank') === 'bank';
               return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: '#13151a', border: '1px solid #1d2026' }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 11, background: (cat?.color || '#64748b') + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px', borderRadius: 18, background: T.card, border: `1px solid ${T.border}`, position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: cat?.color || T.coral, borderRadius: '0 2px 2px 0' }} />
+                  <div style={{ width: 42, height: 42, borderRadius: 14, background: (cat?.color || T.coral) + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
                     {cat?.icon || '❓'}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#e8e6e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {cat?.name || 'Uncategorized'}
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {t.note ? t.note + ' · ' : ''}{new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      <span style={{ fontSize: 10, background: (t.payment_method || 'cash') === 'bank' ? '#1a2535' : '#1a2218', color: (t.payment_method || 'cash') === 'bank' ? '#60a5fa' : '#86efac', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>
-                        {(t.payment_method || 'cash') === 'bank' ? '🏦' : '💵'}
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {t.note && <span style={{ color: T.dim }}>{t.note} ·</span>}
+                      {new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      <span style={{ background: isBank ? T.indigoGlow : T.mintL, color: isBank ? T.indigoL : T.mint, borderRadius: 6, padding: '1px 6px', fontWeight: 700, fontSize: 10 }}>
+                        {isBank ? '🏦 Bank' : '💵 Cash'}
                       </span>
                     </div>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#f87171', flexShrink: 0 }}>
-                    −{fmt(t.amount)}
-                  </div>
-                  <button onClick={() => onEditTx(t)} style={{ width: 28, height: 28, borderRadius: 8, background: 'transparent', border: 'none', color: '#4b5058', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Edit2 size={13} />
+                  <div style={{ fontSize: 15, fontWeight: 800, color: T.coral, flexShrink: 0 }}>−{fmt(t.amount)}</div>
+                  <button onClick={() => onEditTx(t)} className="btn-press" style={{ width: 30, height: 30, borderRadius: 10, background: T.surface, border: `1px solid ${T.border}`, color: T.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Edit2 size={12} />
                   </button>
-                  <button onClick={() => onDeleteTx(t.id)} style={{ width: 28, height: 28, borderRadius: 8, background: 'transparent', border: 'none', color: '#4b5058', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Trash2 size={13} />
+                  <button onClick={() => onDeleteTx(t.id)} className="btn-press" style={{ width: 30, height: 30, borderRadius: 10, background: T.surface, border: `1px solid ${T.border}`, color: T.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Trash2 size={12} />
                   </button>
                 </div>
               );
@@ -790,9 +828,9 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
 
       {/* Income list */}
       <div style={{ margin: '0 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <SectionTitle>Income</SectionTitle>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#4ade80' }}>+{fmt(monthTx.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0))}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <SectionTitle color={T.mint}>Income</SectionTitle>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.mint, background: T.mintL, padding: '4px 10px', borderRadius: 100 }}>+{fmt(monthTx.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0))}</div>
         </div>
         {monthTx.filter(t => t.type === 'income').length === 0 ? (
           <EmptyState icon={<ArrowUpRight size={22} />} text="No income this month." />
@@ -800,27 +838,31 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {monthTx.filter(t => t.type === 'income').map(t => {
               const cat = catMap[t.category_id];
+              const isBank = (t.payment_method || 'bank') === 'bank';
               return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: '#13151a', border: '1px solid #1a2e1a' }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 11, background: (cat?.color || '#22c55e') + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px', borderRadius: 18, background: T.mintL, border: `1px solid ${T.mint}25`, position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: T.mint, borderRadius: '0 2px 2px 0' }} />
+                  <div style={{ width: 42, height: 42, borderRadius: 14, background: (cat?.color || T.mint) + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
                     {cat?.icon || '💰'}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#e8e6e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {cat?.name || 'Uncategorized'}
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 1 }}>
-                      {t.note ? t.note + ' · ' : ''}{new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {t.note && <span style={{ color: T.dim }}>{t.note} ·</span>}
+                      {new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      <span style={{ background: isBank ? T.indigoGlow : T.mintL, color: isBank ? T.indigoL : T.mint, borderRadius: 6, padding: '1px 6px', fontWeight: 700, fontSize: 10 }}>
+                        {isBank ? '🏦 Bank' : '💵 Cash'}
+                      </span>
                     </div>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#4ade80', flexShrink: 0 }}>
-                    +{fmt(t.amount)}
-                  </div>
-                  <button onClick={() => onEditTx(t)} style={{ width: 28, height: 28, borderRadius: 8, background: 'transparent', border: 'none', color: '#4b5058', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Edit2 size={13} />
+                  <div style={{ fontSize: 15, fontWeight: 800, color: T.mint, flexShrink: 0 }}>+{fmt(t.amount)}</div>
+                  <button onClick={() => onEditTx(t)} className="btn-press" style={{ width: 30, height: 30, borderRadius: 10, background: `${T.mint}15`, border: `1px solid ${T.mint}25`, color: T.mint, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Edit2 size={12} />
                   </button>
-                  <button onClick={() => onDeleteTx(t.id)} style={{ width: 28, height: 28, borderRadius: 8, background: 'transparent', border: 'none', color: '#4b5058', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Trash2 size={13} />
+                  <button onClick={() => onDeleteTx(t.id)} className="btn-press" style={{ width: 30, height: 30, borderRadius: 10, background: `${T.mint}15`, border: `1px solid ${T.mint}25`, color: T.mint, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Trash2 size={12} />
                   </button>
                 </div>
               );
@@ -979,15 +1021,20 @@ function RecurringTab({ recurring, catMap, onAdd, onDelete }) {
   );
 }
 
-function SectionTitle({ children }) {
-  return <div style={{ fontSize: 12.5, fontWeight: 600, color: '#6b7280', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{children}</div>;
+function SectionTitle({ children, color }) {
+  return (
+    <div style={{ fontSize: 11, fontWeight: 800, color: color || T.muted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 7 }}>
+      <div style={{ width: 3, height: 13, borderRadius: 2, background: `linear-gradient(180deg, ${color || T.indigo}, ${color || T.purple})` }} />
+      {children}
+    </div>
+  );
 }
 
 function EmptyState({ icon, text }) {
   return (
-    <div style={{ padding: '40px 20px', textAlign: 'center', borderRadius: 16, background: '#13151a', border: '1px dashed #23262c' }}>
-      <div style={{ color: '#3a3d44', marginBottom: 10, display: 'flex', justifyContent: 'center' }}>{icon}</div>
-      <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{text}</div>
+    <div style={{ padding: '40px 20px', textAlign: 'center', borderRadius: 20, background: T.card, border: `1px dashed ${T.border2}` }}>
+      <div style={{ color: T.dim, marginBottom: 12, display: 'flex', justifyContent: 'center', opacity: 0.6 }}>{icon}</div>
+      <div style={{ fontSize: 13.5, color: T.muted, lineHeight: 1.6 }}>{text}</div>
     </div>
   );
 }
@@ -996,16 +1043,16 @@ function BottomNav({ tab, setTab, onAdd }) {
   const items = [
     { id: 'home', label: 'Home', icon: Wallet },
     { id: 'daily', label: 'Daily', icon: BarChart2 },
-    { id: 'budgets', label: 'Budgets', icon: Target },
-    { id: 'recurring', label: 'Recurring', icon: Repeat },
+    { id: 'budgets', label: 'Budget', icon: Target },
+    { id: 'recurring', label: 'Auto', icon: Repeat },
   ];
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100 }}>
-      <div style={{ maxWidth: 480, margin: '0 auto', position: 'relative', padding: '0 12px 20px' }}>
-        <div style={{ background: '#13151a', border: '1px solid #1d2026', borderRadius: 100, padding: '8px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 28px' }}>
+        <div style={{ background: `rgba(13,14,26,0.92)`, backdropFilter: 'blur(24px)', border: `1px solid ${T.border2}`, borderRadius: 100, padding: '7px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: `0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px ${T.border}` }}>
           {items.slice(0, 2).map(item => <NavBtn key={item.id} item={item} active={tab === item.id} onClick={() => setTab(item.id)} />)}
-          <button onClick={onAdd} style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, #f0b429, #de9a1f)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(240,180,41,0.35)', flexShrink: 0 }}>
-            <Plus size={22} color="#0b0d10" strokeWidth={2.5} />
+          <button onClick={onAdd} className="btn-press" style={{ width: 52, height: 52, borderRadius: '50%', background: `linear-gradient(135deg, ${T.indigo}, ${T.purple})`, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 20px ${T.indigo}60, 0 0 0 4px ${T.indigoGlow}`, flexShrink: 0 }}>
+            <Plus size={24} color="#fff" strokeWidth={2.5} />
           </button>
           {items.slice(2).map(item => <NavBtn key={item.id} item={item} active={tab === item.id} onClick={() => setTab(item.id)} />)}
         </div>
@@ -1017,20 +1064,22 @@ function BottomNav({ tab, setTab, onAdd }) {
 function NavBtn({ item, active, onClick }) {
   const Icon = item.icon;
   return (
-    <button onClick={onClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'transparent', border: 'none', color: active ? '#f0b429' : '#5b6068', padding: '6px 16px', flex: 1 }}>
-      <Icon size={19} strokeWidth={active ? 2.4 : 2} />
-      <span style={{ fontSize: 9.5, fontWeight: 600 }}>{item.label}</span>
+    <button onClick={onClick} className="btn-press" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: active ? T.indigoGlow : 'transparent', border: 'none', color: active ? T.indigoL : T.dim, padding: '7px 14px', flex: 1, borderRadius: 100, transition: 'all 0.2s' }}>
+      <Icon size={19} strokeWidth={active ? 2.5 : 1.8} />
+      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.04em' }}>{item.label}</span>
     </button>
   );
 }
 
 function Sheet({ title, onClose, children }) {
   return (
-    <div className="overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
-      <div className="sheet" style={{ width: '100%', maxWidth: 480, margin: '0 auto', background: '#15171c', borderRadius: '24px 24px 0 0', border: '1px solid #23262c', borderBottom: 'none', maxHeight: '88vh', overflowY: 'auto', padding: '20px 20px 28px' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <h3 style={{ fontSize: 16.5, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>{title}</h3>
-          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: '#1d2026', border: 'none', color: '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div className="overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
+      <div className="sheet" style={{ width: '100%', maxWidth: 480, margin: '0 auto', background: `linear-gradient(180deg, #0f1128, ${T.surface})`, borderRadius: '28px 28px 0 0', border: `1px solid ${T.border2}`, borderBottom: 'none', maxHeight: '92vh', overflowY: 'auto', padding: '22px 20px 36px' }} onClick={e => e.stopPropagation()}>
+        {/* Handle bar */}
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: T.border2, margin: '0 auto 18px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+          <h3 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: '-0.03em', color: T.text }}>{title}</h3>
+          <button onClick={onClose} className="btn-press" style={{ width: 34, height: 34, borderRadius: '50%', background: T.card, border: `1px solid ${T.border}`, color: T.muted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X size={15} />
           </button>
         </div>
@@ -1041,10 +1090,11 @@ function Sheet({ title, onClose, children }) {
 }
 
 const inputStyle = {
-  width: '100%', padding: '12px 14px', borderRadius: 12, background: '#1a1d23',
-  border: '1px solid #262a31', color: '#e8e6e1', fontSize: 14.5, outline: 'none',
+  width: '100%', padding: '14px 16px', borderRadius: 16, background: T.card,
+  border: `1px solid ${T.border2}`, color: T.text, fontSize: 15, outline: 'none',
+  transition: 'border-color 0.2s',
 };
-const labelStyle = { fontSize: 12, fontWeight: 600, color: '#8b9099', marginBottom: 6, display: 'block' };
+const labelStyle = { fontSize: 11, fontWeight: 800, color: T.muted, marginBottom: 10, display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em' };
 
 function AddTransactionSheet({ categories, editingTx, onClose, onSaved }) {
   const [type, setType] = useState(editingTx?.type || 'expense');
