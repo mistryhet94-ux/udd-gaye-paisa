@@ -425,6 +425,7 @@ function AppInner({ currentUser, onLogout }) {
                 catMap={catMap}
                 cashBalance={cashBalance}
                 bankBalance={bankBalance}
+                categoryDailyAvg={categoryDailyAvg}
                 onEditTx={(t) => { setEditingTx(t); setShowAddTx(true); }}
                 onDeleteTx={deleteTx}
               />
@@ -695,33 +696,66 @@ function MonthSwitcher({ viewDate, monthOffset, setMonthOffset }) {
   );
 }
 
-function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpense, monthNet, avgDailySpend, categoryBreakdown, monthTx, catMap, cashBalance, bankBalance, onEditTx, onDeleteTx }) {
+function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpense, monthNet, avgDailySpend, categoryBreakdown, monthTx, catMap, cashBalance, bankBalance, onEditTx, onDeleteTx, categoryDailyAvg }) {
+  const [expanded, setExpanded] = useState(null); // 'income' | 'expense' | 'daily' | null
+
+  function toggle(key) { setExpanded(e => e === key ? null : key); }
+
+  const expenseTx = monthTx.filter(t => t.type === 'expense');
+  const incomeTx = monthTx.filter(t => t.type === 'income');
+  const totalDays = daysInMonth(viewDate.getFullYear(), viewDate.getMonth());
+
   return (
     <div>
       <MonthSwitcher viewDate={viewDate} monthOffset={monthOffset} setMonthOffset={setMonthOffset} />
 
       {/* Hero net balance card */}
       <div style={{ margin: '0 20px 14px', padding: '26px 22px 22px', borderRadius: 28, background: `linear-gradient(145deg, #1a1060 0%, #0e0a2a 50%, #0a1230 100%)`, border: `1px solid ${T.border2}`, position: 'relative', overflow: 'hidden' }}>
-        {/* Decorative orbs */}
         <div style={{ position: 'absolute', top: -40, right: -20, width: 160, height: 160, borderRadius: '50%', background: `radial-gradient(circle, ${T.indigo}30, transparent 70%)`, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -30, left: -20, width: 120, height: 120, borderRadius: '50%', background: `radial-gradient(circle, ${T.purple}20, transparent 70%)`, pointerEvents: 'none' }} />
-
         <div style={{ fontSize: 11, color: T.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Net Balance · {viewDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</div>
         <div style={{ fontSize: 42, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 20, background: monthNet >= 0 ? `linear-gradient(135deg, ${T.text}, ${T.indigoL})` : `linear-gradient(135deg, ${T.coral}, #ff9eb5)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           {monthNet >= 0 ? fmt(monthNet) : '−' + fmt(Math.abs(monthNet))}
         </div>
 
+        {/* Tappable income/expense toggles */}
         <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1, padding: '10px 12px', borderRadius: 14, background: `${T.mint}12`, border: `1px solid ${T.mint}25` }}>
-            <div style={{ fontSize: 10, color: T.mint, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 3 }}>↑ INCOME</div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: T.mint }}>{fmt(monthIncome)}</div>
-          </div>
-          <div style={{ flex: 1, padding: '10px 12px', borderRadius: 14, background: `${T.coral}12`, border: `1px solid ${T.coral}25` }}>
-            <div style={{ fontSize: 10, color: T.coral, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 3 }}>↓ EXPENSE</div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: T.coral }}>{fmt(monthExpense)}</div>
-          </div>
+          <button onClick={() => toggle('income')} className="btn-press" style={{ flex: 1, padding: '12px', borderRadius: 16, background: expanded === 'income' ? `${T.mint}25` : `${T.mint}12`, border: `1px solid ${expanded === 'income' ? T.mint : T.mint + '30'}`, textAlign: 'left', transition: 'all 0.2s' }}>
+            <div style={{ fontSize: 10, color: T.mint, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 4 }}>↑ INCOME {expanded === 'income' ? '▲' : '▼'}</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: T.mint, letterSpacing: '-0.02em' }}>{fmt(monthIncome)}</div>
+          </button>
+          <button onClick={() => toggle('expense')} className="btn-press" style={{ flex: 1, padding: '12px', borderRadius: 16, background: expanded === 'expense' ? `${T.coral}25` : `${T.coral}12`, border: `1px solid ${expanded === 'expense' ? T.coral : T.coral + '30'}`, textAlign: 'left', transition: 'all 0.2s' }}>
+            <div style={{ fontSize: 10, color: T.coral, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 4 }}>↓ EXPENSE {expanded === 'expense' ? '▲' : '▼'}</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: T.coral, letterSpacing: '-0.02em' }}>{fmt(monthExpense)}</div>
+          </button>
         </div>
       </div>
+
+      {/* Expandable Income list */}
+      {expanded === 'income' && (
+        <div className="pop" style={{ margin: '-6px 20px 14px' }}>
+          {incomeTx.length === 0 ? (
+            <EmptyState icon={<ArrowUpRight size={20} />} text="No income this month." />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {incomeTx.map(t => <TxCard key={t.id} t={t} cat={catMap[t.category_id]} type="income" onEdit={onEditTx} onDelete={onDeleteTx} />)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Expandable Expense list */}
+      {expanded === 'expense' && (
+        <div className="pop" style={{ margin: '-6px 20px 14px' }}>
+          {expenseTx.length === 0 ? (
+            <EmptyState icon={<ArrowDownRight size={20} />} text="No expenses this month." />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {expenseTx.map(t => <TxCard key={t.id} t={t} cat={catMap[t.category_id]} type="expense" onEdit={onEditTx} onDelete={onDeleteTx} />)}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Cash & Bank balance cards */}
       <div style={{ display: 'flex', gap: 10, margin: '0 20px 14px' }}>
@@ -743,18 +777,47 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
         </div>
       </div>
 
-      {/* Avg daily spend */}
-      <div style={{ margin: '0 20px 20px', padding: '14px 18px', borderRadius: 18, background: `linear-gradient(135deg, #1a1508, #120f04)`, border: `1px solid ${T.gold}25`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Tappable Avg daily spend */}
+      <button onClick={() => toggle('daily')} className="btn-press" style={{ margin: '0 20px 14px', padding: '14px 18px', borderRadius: 18, background: expanded === 'daily' ? `linear-gradient(135deg, #251e08, #1a1504)` : `linear-gradient(135deg, #1a1508, #120f04)`, border: `1px solid ${expanded === 'daily' ? T.gold + '60' : T.gold + '25'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: 'calc(100% - 40px)', transition: 'all 0.2s' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <div style={{ width: 32, height: 32, borderRadius: 10, background: T.goldL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Calendar size={15} color={T.gold} />
           </div>
-          <span style={{ fontSize: 13.5, color: T.muted, fontWeight: 500 }}>Avg daily spend</span>
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: 10, color: T.muted, fontWeight: 700, letterSpacing: '0.06em' }}>AVG DAILY SPEND {expanded === 'daily' ? '▲' : '▼'}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: T.gold, letterSpacing: '-0.02em' }}>{fmtDecimal(avgDailySpend)}</div>
+          </div>
         </div>
-        <span style={{ fontSize: 17, fontWeight: 800, color: T.gold, letterSpacing: '-0.02em' }}>{fmtDecimal(avgDailySpend)}</span>
-      </div>
+        <div style={{ fontSize: 11, color: T.muted }}>Tap to see breakdown</div>
+      </button>
 
-      {/* Category breakdown */}
+      {/* Expandable daily category breakdown */}
+      {expanded === 'daily' && (
+        <div className="pop" style={{ margin: '-6px 20px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {categoryDailyAvg.length === 0 ? (
+            <EmptyState icon={<BarChart2 size={20} />} text="No expenses to show." />
+          ) : categoryDailyAvg.map((c, i) => (
+            <div key={i} style={{ padding: '12px 14px', borderRadius: 16, background: T.card, border: `1px solid ${T.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 12, background: c.color + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>{c.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{c.name}</div>
+                  <div style={{ fontSize: 11, color: T.muted }}>₹{c.total.toLocaleString('en-IN')} total · {totalDays} days</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: c.color }}>{fmtDecimal(c.dailyAvg)}</div>
+                  <div style={{ fontSize: 10, color: T.muted }}>per day</div>
+                </div>
+              </div>
+              <div style={{ height: 4, borderRadius: 100, background: T.border, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${c.pct}%`, background: `linear-gradient(90deg, ${c.color}, ${c.color}99)`, borderRadius: 100, transition: 'width 0.5s ease' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Category pie breakdown */}
       {categoryBreakdown.length > 0 && (
         <div style={{ margin: '0 20px 20px' }}>
           <SectionTitle>Where it went</SectionTitle>
@@ -780,96 +843,41 @@ function HomeTab({ viewDate, monthOffset, setMonthOffset, monthIncome, monthExpe
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Expenses list */}
-      <div style={{ margin: '0 20px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <SectionTitle color={T.coral}>Expenses</SectionTitle>
-          <div style={{ fontSize: 13, fontWeight: 800, color: T.coral, background: T.coralL, padding: '4px 10px', borderRadius: 100 }}>−{fmt(monthTx.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0))}</div>
-        </div>
-        {monthTx.filter(t => t.type === 'expense').length === 0 ? (
-          <EmptyState icon={<ArrowDownRight size={22} />} text="No expenses this month. Tap + to add one." />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {monthTx.filter(t => t.type === 'expense').map(t => {
-              const cat = catMap[t.category_id];
-              const isBank = (t.payment_method || 'bank') === 'bank';
-              return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px', borderRadius: 18, background: T.card, border: `1px solid ${T.border}`, position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: cat?.color || T.coral, borderRadius: '0 2px 2px 0' }} />
-                  <div style={{ width: 42, height: 42, borderRadius: 14, background: (cat?.color || T.coral) + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                    {cat?.icon || '❓'}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {cat?.name || 'Uncategorized'}
-                    </div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      {t.note && <span style={{ color: T.dim }}>{t.note} ·</span>}
-                      {new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      <span style={{ background: isBank ? T.indigoGlow : T.mintL, color: isBank ? T.indigoL : T.mint, borderRadius: 6, padding: '1px 6px', fontWeight: 700, fontSize: 10 }}>
-                        {isBank ? '🏦 Bank' : '💵 Cash'}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: T.coral, flexShrink: 0 }}>−{fmt(t.amount)}</div>
-                  <button onClick={() => onEditTx(t)} className="btn-press" style={{ width: 30, height: 30, borderRadius: 10, background: T.surface, border: `1px solid ${T.border}`, color: T.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Edit2 size={12} />
-                  </button>
-                  <button onClick={() => onDeleteTx(t.id)} className="btn-press" style={{ width: 30, height: 30, borderRadius: 10, background: T.surface, border: `1px solid ${T.border}`, color: T.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
+// Reusable transaction card
+function TxCard({ t, cat, type, onEdit, onDelete }) {
+  const isBank = (t.payment_method || 'bank') === 'bank';
+  const isIncome = type === 'income';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 13px', borderRadius: 16, background: isIncome ? T.mintL : T.card, border: `1px solid ${isIncome ? T.mint + '30' : T.border}`, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: cat?.color || (isIncome ? T.mint : T.coral), borderRadius: '0 2px 2px 0' }} />
+      <div style={{ width: 38, height: 38, borderRadius: 12, background: (cat?.color || (isIncome ? T.mint : T.coral)) + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+        {cat?.icon || (isIncome ? '💰' : '❓')}
       </div>
-
-      {/* Income list */}
-      <div style={{ margin: '0 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <SectionTitle color={T.mint}>Income</SectionTitle>
-          <div style={{ fontSize: 13, fontWeight: 800, color: T.mint, background: T.mintL, padding: '4px 10px', borderRadius: 100 }}>+{fmt(monthTx.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0))}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {cat?.name || 'Uncategorized'}
         </div>
-        {monthTx.filter(t => t.type === 'income').length === 0 ? (
-          <EmptyState icon={<ArrowUpRight size={22} />} text="No income this month." />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {monthTx.filter(t => t.type === 'income').map(t => {
-              const cat = catMap[t.category_id];
-              const isBank = (t.payment_method || 'bank') === 'bank';
-              return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px', borderRadius: 18, background: T.mintL, border: `1px solid ${T.mint}25`, position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: T.mint, borderRadius: '0 2px 2px 0' }} />
-                  <div style={{ width: 42, height: 42, borderRadius: 14, background: (cat?.color || T.mint) + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                    {cat?.icon || '💰'}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {cat?.name || 'Uncategorized'}
-                    </div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      {t.note && <span style={{ color: T.dim }}>{t.note} ·</span>}
-                      {new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      <span style={{ background: isBank ? T.indigoGlow : T.mintL, color: isBank ? T.indigoL : T.mint, borderRadius: 6, padding: '1px 6px', fontWeight: 700, fontSize: 10 }}>
-                        {isBank ? '🏦 Bank' : '💵 Cash'}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: T.mint, flexShrink: 0 }}>+{fmt(t.amount)}</div>
-                  <button onClick={() => onEditTx(t)} className="btn-press" style={{ width: 30, height: 30, borderRadius: 10, background: `${T.mint}15`, border: `1px solid ${T.mint}25`, color: T.mint, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Edit2 size={12} />
-                  </button>
-                  <button onClick={() => onDeleteTx(t.id)} className="btn-press" style={{ width: 30, height: 30, borderRadius: 10, background: `${T.mint}15`, border: `1px solid ${T.mint}25`, color: T.mint, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div style={{ fontSize: 10.5, color: T.muted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          {t.note && <span>{t.note} ·</span>}
+          <span>{new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+          <span style={{ background: isBank ? T.indigoGlow : T.mintL, color: isBank ? T.indigoL : T.mint, borderRadius: 5, padding: '1px 5px', fontWeight: 700, fontSize: 9.5 }}>
+            {isBank ? '🏦' : '💵'}
+          </span>
+        </div>
       </div>
+      <div style={{ fontSize: 14, fontWeight: 800, color: isIncome ? T.mint : T.coral, flexShrink: 0 }}>
+        {isIncome ? '+' : '−'}{fmt(t.amount)}
+      </div>
+      <button onClick={() => onEdit(t)} className="btn-press" style={{ width: 28, height: 28, borderRadius: 9, background: T.surface, border: `1px solid ${T.border}`, color: T.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Edit2 size={11} />
+      </button>
+      <button onClick={() => onDelete(t.id)} className="btn-press" style={{ width: 28, height: 28, borderRadius: 9, background: T.surface, border: `1px solid ${T.border}`, color: T.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Trash2 size={11} />
+      </button>
     </div>
   );
 }
