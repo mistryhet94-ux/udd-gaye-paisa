@@ -539,11 +539,14 @@ const GLOBAL_CSS = `
 
 // ─── Auth Screen ────────────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'signup'
-  const [name, setName] = useState('');
+  const [mode, setMode] = useState('login');
+  const [name, setName] = useState(() => { try { return localStorage.getItem('ugp_last_name') || ''; } catch { return ''; } });
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [step, setStep] = useState('name'); // 'name' | 'pin' | 'confirmPin'
+  const [step, setStep] = useState(() => {
+    // If we have a saved name and we're in login mode, skip straight to PIN
+    try { return localStorage.getItem('ugp_last_name') ? 'pin' : 'name'; } catch { return 'name'; }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
@@ -601,6 +604,7 @@ function AuthScreen({ onLogin }) {
         setLoading(false);
         return;
       }
+      try { localStorage.setItem('ugp_last_name', match.name); } catch {}
       onLogin({ id: match.id, name: match.name });
     } catch (e) {
       triggerShake(e.message || 'Login failed');
@@ -613,7 +617,6 @@ function AuthScreen({ onLogin }) {
     setLoading(true);
     setError('');
     try {
-      // Check if name already exists
       const check = await supabase.from('app_users').select('id').eq('name', name.trim());
       if (check.data && check.data.length > 0) {
         triggerShake('Name already taken, choose another');
@@ -623,10 +626,10 @@ function AuthScreen({ onLogin }) {
       }
       const ins = await supabase.from('app_users').insert({ name: name.trim(), pin: enteredPin });
       if (ins.error) throw ins.error;
-      // Fetch the new user
       const res = await supabase.from('app_users').select('*').eq('name', name.trim());
       const newUser = res.data?.[0];
       if (!newUser) throw new Error('Signup failed');
+      try { localStorage.setItem('ugp_last_name', newUser.name); } catch {}
       onLogin({ id: newUser.id, name: newUser.name });
     } catch (e) {
       triggerShake(e.message || 'Signup failed');
@@ -636,10 +639,20 @@ function AuthScreen({ onLogin }) {
 
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
   const currentPin = step === 'confirmPin' ? confirmPin : pin;
-
   const stepLabel = mode === 'login'
     ? 'Enter your 4-digit PIN'
     : step === 'pin' ? 'Create a 4-digit PIN' : 'Confirm your PIN';
+
+  function switchMode(m) {
+    setMode(m);
+    setPin(''); setConfirmPin(''); setError('');
+    // On signup always start from name; on login skip to PIN if name is saved
+    if (m === 'login') {
+      try { setStep(localStorage.getItem('ugp_last_name') ? 'pin' : 'name'); } catch { setStep('name'); }
+    } else {
+      setStep('name');
+    }
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at 50% 0%, #1a1060 0%, ${T.bg} 60%)`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -657,13 +670,13 @@ function AuthScreen({ onLogin }) {
       {/* Mode toggle */}
       <div style={{ display: 'flex', background: T.card, borderRadius: 14, padding: 4, marginBottom: 24, border: `1px solid ${T.border}` }}>
         {['login', 'signup'].map(m => (
-          <button key={m} onClick={() => { setMode(m); setStep('name'); setPin(''); setConfirmPin(''); setError(''); }} className="btn-press" style={{ padding: '9px 24px', borderRadius: 11, fontSize: 13, fontWeight: 700, background: mode === m ? `linear-gradient(135deg, ${T.indigo}, ${T.purple})` : 'transparent', color: mode === m ? '#fff' : T.muted, border: 'none', transition: 'all 0.2s' }}>
+          <button key={m} onClick={() => switchMode(m)} className="btn-press" style={{ padding: '9px 24px', borderRadius: 11, fontSize: 13, fontWeight: 700, background: mode === m ? `linear-gradient(135deg, ${T.indigo}, ${T.purple})` : 'transparent', color: mode === m ? '#fff' : T.muted, border: 'none', transition: 'all 0.2s' }}>
             {m === 'login' ? 'Login' : 'Sign Up'}
           </button>
         ))}
       </div>
 
-      {/* Name input (shown first) */}
+      {/* Name input step */}
       {step === 'name' ? (
         <div style={{ width: '100%', maxWidth: 280, marginBottom: 8 }}>
           <div style={{ fontSize: 13, color: T.muted, marginBottom: 10, textAlign: 'center', fontWeight: 600 }}>
@@ -677,13 +690,13 @@ function AuthScreen({ onLogin }) {
             style={{ ...inputStyle, textAlign: 'center', fontSize: 17, fontWeight: 600, marginBottom: 12 }}
           />
           {error && <div style={{ fontSize: 12, color: T.coral, textAlign: 'center', marginBottom: 8, fontWeight: 600 }}>{error}</div>}
-          <button onClick={() => { if (!name.trim()) { setError('Please enter your name'); return; } setStep('pin'); }} className="btn-press" style={{ width: '100%', padding: '14px', borderRadius: 16, background: `linear-gradient(135deg, ${T.indigo}, ${T.purple})`, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, boxShadow: `0 4px 20px ${T.indigo}50` }}>
+          <button onClick={() => { if (!name.trim()) { setError('Please enter your name'); return; } setStep('pin'); setPin(''); }} className="btn-press" style={{ width: '100%', padding: '14px', borderRadius: 16, background: `linear-gradient(135deg, ${T.indigo}, ${T.purple})`, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, boxShadow: `0 4px 20px ${T.indigo}50` }}>
             Continue →
           </button>
         </div>
       ) : (
         <>
-          {/* Greeting */}
+          {/* Greeting + change name link */}
           <div style={{ fontSize: 13.5, color: T.muted, marginBottom: 16, textAlign: 'center', fontWeight: 600 }}>
             {mode === 'login' ? `Welcome back, ${name}! 👋` : `Hi ${name}! 👋`}
             <br />
@@ -701,7 +714,7 @@ function AuthScreen({ onLogin }) {
           {!error && <div style={{ height: 20, marginBottom: 8 }} />}
 
           {loading ? (
-            <div style={{ fontSize: 14, color: T.muted, padding: 20, animation: 'pulse 1s infinite' }}>
+            <div style={{ fontSize: 14, color: T.muted, padding: 20 }}>
               {mode === 'login' ? 'Logging in…' : 'Creating account…'}
             </div>
           ) : (
@@ -718,30 +731,33 @@ function AuthScreen({ onLogin }) {
           )}
 
           <button onClick={() => { setStep('name'); setPin(''); setConfirmPin(''); setError(''); }} style={{ marginTop: 20, fontSize: 12, color: T.dim, background: 'none', border: 'none', cursor: 'pointer' }}>
-            ← Change name
+            ← Not {name}?
           </button>
         </>
       )}
     </div>
   );
 }
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [shake, setShake] = useState(false);
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const saved = sessionStorage.getItem('ugp_user');
+      const saved = localStorage.getItem('ugp_session');
       if (saved) return JSON.parse(saved);
     } catch {}
     return null;
   });
 
   function handleLogin(user) {
-    try { sessionStorage.setItem('ugp_user', JSON.stringify(user)); } catch {}
+    try { localStorage.setItem('ugp_session', JSON.stringify(user)); } catch {}
     setCurrentUser(user);
   }
 
   function handleLogout() {
-    try { sessionStorage.removeItem('ugp_user'); } catch {}
+    try { localStorage.removeItem('ugp_session'); } catch {}
     setCurrentUser(null);
   }
 
