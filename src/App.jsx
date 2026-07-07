@@ -166,7 +166,7 @@ function AppInner({ currentUser, onLogout }) {
     setError(null);
     try {
       const [txRes, catRes, budRes, recRes] = await Promise.all([
-        supabase.from('transactions').select('*').order('date', { ascending: false }),
+        supabase.from('transactions').select('*').eq('user_id', currentUser.id).order('date', { ascending: false }),
         supabase.from('categories').select('*').order('name'),
         supabase.from('budgets').select('*'),
         supabase.from('recurring_transactions').select('*').eq('is_active', true),
@@ -175,27 +175,16 @@ function AppInner({ currentUser, onLogout }) {
       if (catRes.error) throw new Error('Categories: ' + catRes.error.message);
       if (budRes.error) throw new Error('Budgets: ' + budRes.error.message);
       if (recRes.error) throw new Error('Recurring: ' + recRes.error.message);
-      const allCategories = Array.isArray(catRes.data) ? catRes.data : [];
-      const allTransactions = Array.isArray(txRes.data) ? txRes.data : [];
-
-      // Filter out hidden categories for this user
-      const visibleCats = allCategories.filter(c => !currentUser.hiddenCategories.includes(c.name));
-      const visibleCatIds = new Set(visibleCats.map(c => c.id));
-      const visibleTx = allTransactions.filter(t => !t.category_id || visibleCatIds.has(t.category_id));
-
-      setTransactions(visibleTx);
-      setCategories(visibleCats);
+      setTransactions(Array.isArray(txRes.data) ? txRes.data : []);
+      setCategories(Array.isArray(catRes.data) ? catRes.data : []);
       setBudgets(Array.isArray(budRes.data) ? budRes.data : []);
       setRecurring(Array.isArray(recRes.data) ? recRes.data : []);
-      if (!Array.isArray(catRes.data) || catRes.data.length === 0) {
-        console.warn('Categories loaded empty:', catRes);
-      }
     } catch (e) {
       setError(e.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentUser.id]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -217,6 +206,8 @@ function AppInner({ currentUser, onLogout }) {
             category_id: r.category_id,
             note: r.note ? `${r.note} (auto)` : 'Recurring (auto)',
             date: cursor,
+            payment_method: 'bank',
+            user_id: currentUser.id,
           });
           cursor = getNextDueDate(r.frequency, r.day_of_month, r.day_of_week, cursor);
           safety++;
@@ -464,6 +455,7 @@ function AppInner({ currentUser, onLogout }) {
           <AddTransactionSheet
             categories={categories}
             editingTx={editingTx}
+            userId={currentUser.id}
             onClose={() => { setShowAddTx(false); setEditingTx(null); }}
             onSaved={(msg) => { loadAll(); showToast(msg); setShowAddTx(false); setEditingTx(null); }}
           />
@@ -545,82 +537,191 @@ const GLOBAL_CSS = `
   .btn-press:active { transform: scale(0.95); transition: transform 0.1s; }
 `;
 
-const USERS = [
-  { id: 'het-full', name: 'Het', pin: '8128', hiddenCategories: [] },
-  { id: 'het-limited', name: 'Het', pin: '2011', hiddenCategories: ['Other'] },
-];
-
-function LoginScreen({ onLogin }) {
+// ─── Auth Screen ────────────────────────────────────────────────────────────
+function AuthScreen({ onLogin }) {
+  const [mode, setMode] = useState('login'); // 'login' | 'signup'
+  const [name, setName] = useState('');
   const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [step, setStep] = useState('name'); // 'name' | 'pin' | 'confirmPin'
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
 
+  function triggerShake(msg) {
+    setError(msg);
+    setShake(true);
+    setTimeout(() => { setShake(false); setPin(''); setConfirmPin(''); }, 700);
+  }
+
   function handleKey(k) {
-    if (pin.length < 4) {
-      const next = pin + k;
-      setPin(next);
-      if (next.length === 4) {
-        const user = USERS.find(u => u.pin === next);
-        if (user) {
-          onLogin(user);
-        } else {
-          setShake(true);
-          setError('Wrong PIN');
-          setTimeout(() => { setPin(''); setError(''); setShake(false); }, 700);
-        }
+    const current = step === 'confirmPin' ? confirmPin : pin;
+    const setter = step === 'confirmPin' ? setConfirmPin : setPin;
+    if (current.length >= 4) return;
+    const next = current + k;
+    setter(next);
+    if (next.length === 4) {
+      setTimeout(() => handlePinComplete(next), 100);
+    }
+  }
+
+  function handleDel() {
+    setError('');
+    if (step === 'confirmPin') setConfirmPin(p => p.slice(0, -1));
+    else setPin(p => p.slice(0, -1));
+  }
+
+  async function handlePinComplete(enteredPin) {
+    if (mode === 'login') {
+      await doLogin(enteredPin);
+    } else if (step === 'pin') {
+      setStep('confirmPin');
+    } else {
+      if (enteredPin !== pin) {
+        triggerShake('PINs do not match, try again');
+        setStep('pin');
+        setPin('');
+      } else {
+        await doSignup(enteredPin);
       }
     }
   }
 
-  function handleDel() { setPin(p => p.slice(0, -1)); setError(''); }
+  async function doLogin(enteredPin) {
+    if (!name.trim()) { setStep('name'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await supabase.from('app_users').select('*').eq('name', name.trim());
+      if (res.error) throw res.error;
+      const users = res.data || [];
+      const match = users.find(u => u.pin === enteredPin);
+      if (!match) {
+        triggerShake('Wrong PIN');
+        setLoading(false);
+        return;
+      }
+      onLogin({ id: match.id, name: match.name });
+    } catch (e) {
+      triggerShake(e.message || 'Login failed');
+    }
+    setLoading(false);
+  }
+
+  async function doSignup(enteredPin) {
+    if (!name.trim()) { setStep('name'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      // Check if name already exists
+      const check = await supabase.from('app_users').select('id').eq('name', name.trim());
+      if (check.data && check.data.length > 0) {
+        triggerShake('Name already taken, choose another');
+        setStep('pin'); setPin(''); setConfirmPin('');
+        setLoading(false);
+        return;
+      }
+      const ins = await supabase.from('app_users').insert({ name: name.trim(), pin: enteredPin });
+      if (ins.error) throw ins.error;
+      // Fetch the new user
+      const res = await supabase.from('app_users').select('*').eq('name', name.trim());
+      const newUser = res.data?.[0];
+      if (!newUser) throw new Error('Signup failed');
+      onLogin({ id: newUser.id, name: newUser.name });
+    } catch (e) {
+      triggerShake(e.message || 'Signup failed');
+    }
+    setLoading(false);
+  }
 
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  const currentPin = step === 'confirmPin' ? confirmPin : pin;
+
+  const stepLabel = mode === 'login'
+    ? 'Enter your 4-digit PIN'
+    : step === 'pin' ? 'Create a 4-digit PIN' : 'Confirm your PIN';
 
   return (
     <div style={{ minHeight: '100vh', background: `radial-gradient(ellipse at 50% 0%, #1a1060 0%, ${T.bg} 60%)`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} } @keyframes float { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-8px)} }`}</style>
+      <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}} @keyframes float{0%,100%{transform:translateY(0px)}50%{transform:translateY(-8px)}}`}</style>
 
       {/* Logo */}
-      <div style={{ marginBottom: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 80, height: 80, borderRadius: 24, background: `linear-gradient(135deg, ${T.gold}, ${T.goldD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, boxShadow: `0 8px 32px ${T.goldL}, 0 0 0 1px rgba(255,204,68,0.3)`, animation: 'float 3s ease-in-out infinite' }}>💸</div>
+      <div style={{ marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 76, height: 76, borderRadius: 24, background: `linear-gradient(135deg, ${T.gold}, ${T.goldD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 38, boxShadow: `0 8px 32px ${T.goldL}`, animation: 'float 3s ease-in-out infinite' }}>💸</div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: T.text, letterSpacing: '-0.03em' }}>Udd Gaye Paisa</div>
-          <div style={{ fontSize: 13, color: T.muted, marginTop: 4 }}>Your money, your way 💰</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: T.text, letterSpacing: '-0.03em' }}>Udd Gaye Paisa</div>
+          <div style={{ fontSize: 12.5, color: T.muted, marginTop: 3 }}>Your money, your way 💰</div>
         </div>
       </div>
 
-      {/* PIN dots */}
-      <div style={{ display: 'flex', gap: 18, marginBottom: 10, animation: shake ? 'shake 0.4s ease' : 'none' }}>
-        {[0,1,2,3].map(i => (
-          <div key={i} style={{
-            width: 18, height: 18, borderRadius: '50%',
-            background: i < pin.length ? `linear-gradient(135deg, ${T.indigo}, ${T.purple})` : 'transparent',
-            border: '2px solid ' + (i < pin.length ? T.indigo : T.border2),
-            transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-            transform: i < pin.length ? 'scale(1.1)' : 'scale(1)',
-            boxShadow: i < pin.length ? `0 0 12px ${T.indigoGlow}` : 'none',
-          }} />
+      {/* Mode toggle */}
+      <div style={{ display: 'flex', background: T.card, borderRadius: 14, padding: 4, marginBottom: 24, border: `1px solid ${T.border}` }}>
+        {['login', 'signup'].map(m => (
+          <button key={m} onClick={() => { setMode(m); setStep('name'); setPin(''); setConfirmPin(''); setError(''); }} className="btn-press" style={{ padding: '9px 24px', borderRadius: 11, fontSize: 13, fontWeight: 700, background: mode === m ? `linear-gradient(135deg, ${T.indigo}, ${T.purple})` : 'transparent', color: mode === m ? '#fff' : T.muted, border: 'none', transition: 'all 0.2s' }}>
+            {m === 'login' ? 'Login' : 'Sign Up'}
+          </button>
         ))}
       </div>
 
-      {error && <div style={{ fontSize: 12.5, color: T.coral, marginBottom: 10, fontWeight: 600 }}>Wrong PIN, try again</div>}
-      {!error && <div style={{ height: 22, marginBottom: 10 }} />}
+      {/* Name input (shown first) */}
+      {step === 'name' ? (
+        <div style={{ width: '100%', maxWidth: 280, marginBottom: 8 }}>
+          <div style={{ fontSize: 13, color: T.muted, marginBottom: 10, textAlign: 'center', fontWeight: 600 }}>
+            {mode === 'login' ? 'Enter your name' : 'Choose a username'}
+          </div>
+          <input
+            value={name}
+            onChange={e => { setName(e.target.value); setError(''); }}
+            placeholder="Your name..."
+            autoFocus
+            style={{ ...inputStyle, textAlign: 'center', fontSize: 17, fontWeight: 600, marginBottom: 12 }}
+          />
+          {error && <div style={{ fontSize: 12, color: T.coral, textAlign: 'center', marginBottom: 8, fontWeight: 600 }}>{error}</div>}
+          <button onClick={() => { if (!name.trim()) { setError('Please enter your name'); return; } setStep('pin'); }} className="btn-press" style={{ width: '100%', padding: '14px', borderRadius: 16, background: `linear-gradient(135deg, ${T.indigo}, ${T.purple})`, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, boxShadow: `0 4px 20px ${T.indigo}50` }}>
+            Continue →
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Greeting */}
+          <div style={{ fontSize: 13.5, color: T.muted, marginBottom: 16, textAlign: 'center', fontWeight: 600 }}>
+            {mode === 'login' ? `Welcome back, ${name}! 👋` : `Hi ${name}! 👋`}
+            <br />
+            <span style={{ fontSize: 12, color: T.dim }}>{stepLabel}</span>
+          </div>
 
-      {/* Keypad */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%', maxWidth: 280 }}>
-        {keys.map((k, i) => (
-          k === '' ? <div key={i} /> :
-          k === '⌫' ? (
-            <button key={i} onClick={handleDel} className="btn-press" style={{ height: 68, borderRadius: 20, background: T.surface, border: `1px solid ${T.border}`, color: T.muted, fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              ⌫
-            </button>
+          {/* PIN dots */}
+          <div style={{ display: 'flex', gap: 18, marginBottom: 10, animation: shake ? 'shake 0.4s ease' : 'none' }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{ width: 18, height: 18, borderRadius: '50%', background: i < currentPin.length ? `linear-gradient(135deg, ${T.indigo}, ${T.purple})` : 'transparent', border: '2px solid ' + (i < currentPin.length ? T.indigo : T.border2), transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)', transform: i < currentPin.length ? 'scale(1.15)' : 'scale(1)', boxShadow: i < currentPin.length ? `0 0 14px ${T.indigoGlow}` : 'none' }} />
+            ))}
+          </div>
+
+          {error && <div style={{ fontSize: 12, color: T.coral, marginBottom: 8, fontWeight: 600, textAlign: 'center' }}>{error}</div>}
+          {!error && <div style={{ height: 20, marginBottom: 8 }} />}
+
+          {loading ? (
+            <div style={{ fontSize: 14, color: T.muted, padding: 20, animation: 'pulse 1s infinite' }}>
+              {mode === 'login' ? 'Logging in…' : 'Creating account…'}
+            </div>
           ) : (
-            <button key={i} onClick={() => handleKey(k)} className="btn-press" style={{ height: 68, borderRadius: 20, background: T.card, border: `1px solid ${T.border}`, color: T.text, fontSize: 24, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', letterSpacing: '-0.02em' }}>
-              {k}
-            </button>
-          )
-        ))}
-      </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 11, width: '100%', maxWidth: 280 }}>
+              {keys.map((k, i) => (
+                k === '' ? <div key={i} /> :
+                k === '⌫' ? (
+                  <button key={i} onClick={handleDel} className="btn-press" style={{ height: 66, borderRadius: 20, background: T.surface, border: `1px solid ${T.border}`, color: T.muted, fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⌫</button>
+                ) : (
+                  <button key={i} onClick={() => handleKey(k)} className="btn-press" style={{ height: 66, borderRadius: 20, background: T.card, border: `1px solid ${T.border}`, color: T.text, fontSize: 24, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{k}</button>
+                )
+              ))}
+            </div>
+          )}
+
+          <button onClick={() => { setStep('name'); setPin(''); setConfirmPin(''); setError(''); }} style={{ marginTop: 20, fontSize: 12, color: T.dim, background: 'none', border: 'none', cursor: 'pointer' }}>
+            ← Change name
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -644,7 +745,7 @@ export default function App() {
     setCurrentUser(null);
   }
 
-  if (!currentUser) return <LoginScreen onLogin={handleLogin} />;
+  if (!currentUser) return <AuthScreen onLogin={handleLogin} />;
 
   return (
     <ErrorBoundary>
@@ -1161,7 +1262,7 @@ const inputStyle = {
 };
 const labelStyle = { fontSize: 11, fontWeight: 800, color: T.muted, marginBottom: 10, display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em' };
 
-function AddTransactionSheet({ categories, editingTx, onClose, onSaved }) {
+function AddTransactionSheet({ categories, editingTx, userId, onClose, onSaved }) {
   const [type, setType] = useState(editingTx?.type || 'expense');
   const [amount, setAmount] = useState(editingTx?.amount?.toString() || '');
   const [categoryId, setCategoryId] = useState(editingTx?.category_id || '');
@@ -1194,7 +1295,7 @@ function AddTransactionSheet({ categories, editingTx, onClose, onSaved }) {
         onSaved('Transaction updated');
       } else {
         const { error } = await supabase.from('transactions').insert({
-          amount: Number(amount), type, category_id: categoryId, note: note || null, date, payment_method: paymentMethod,
+          amount: Number(amount), type, category_id: categoryId, note: note || null, date, payment_method: paymentMethod, user_id: userId,
         });
         if (error) throw error;
         onSaved('Transaction added');
