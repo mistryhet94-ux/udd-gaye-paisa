@@ -750,7 +750,6 @@ export default function App() {
     } catch {}
     return null;
   });
-
   function handleLogin(user) {
     try { localStorage.setItem('ugp_session', JSON.stringify(user)); } catch {}
     setCurrentUser(user);

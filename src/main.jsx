@@ -9,8 +9,17 @@ if ('serviceWorker' in navigator) {
     .catch(err => console.warn('SW failed:', err));
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
+const root = document.getElementById('root');
+
+try {
+  ReactDOM.createRoot(root).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+} catch (e) {
+  root.innerHTML = `<div style="background:#07080f;min-height:100vh;padding:24px;font-family:monospace">
+    <h2 style="color:#ff5e7d">App crashed on startup</h2>
+    <pre style="color:#fca5a5;font-size:12px;white-space:pre-wrap">${e.message}\n${e.stack}</pre>
+  </div>`;
+}
