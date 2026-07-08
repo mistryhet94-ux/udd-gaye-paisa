@@ -738,9 +738,6 @@ function AuthScreen({ onLogin }) {
     </div>
   );
 }
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [shake, setShake] = useState(false);
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
